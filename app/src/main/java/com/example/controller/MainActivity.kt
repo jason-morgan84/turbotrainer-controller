@@ -5,14 +5,13 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -20,10 +19,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -34,6 +36,7 @@ import com.example.controller.ui.theme.ControllerTheme
 
 
 var resistance by mutableIntStateOf(50)
+var hue by mutableFloatStateOf(60f)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,7 +45,7 @@ class MainActivity : ComponentActivity() {
             ControllerTheme {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = Color(0xFFF5F5F5) // Pale grey
+                    containerColor = Color(0x22b5b5b0) // Pale grey
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -74,9 +77,21 @@ class MainActivity : ComponentActivity() {
                             )
                             Box(
                                 modifier = Modifier
-                                    .padding(vertical = 32.dp)
-                                    .background(color = Color.White, shape = CircleShape)
-                                    .padding(horizontal = 48.dp, vertical = 16.dp),
+                                    .padding(vertical = 5.dp)
+                                    .size(200.dp)
+                                    .drawBehind {
+                                        val radius = size.minDimension / 2
+                                        drawCircle(
+                                            brush = Brush.radialGradient(
+                                                0.0f to Color.hsl(hue, 0.90f, 0.90f),
+                                                0.65f to Color.hsl(hue, 0.90f, 0.90f),
+                                                0.70f to Color.hsl(hue, 0.90f, 0.50f),
+                                                1.0f to Color.Transparent,
+                                                radius = radius
+                                            ),
+                                            radius = radius
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Label(
@@ -125,7 +140,10 @@ class MainActivity : ComponentActivity() {
 
 fun updateResistance(value: Int) {
     resistance += value
-    //Log.d("resistance updated", resistance.toString())
+    if (resistance>100) { resistance = 100 }
+    if (resistance < 0) { resistance = 0 }
+    hue = (120 - resistance * 1.2).toFloat()
+    //Log.d("hue updated", hue.toString())
 }
 
 @Composable
