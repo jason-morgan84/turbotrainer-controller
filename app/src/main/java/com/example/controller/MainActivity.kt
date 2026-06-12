@@ -166,6 +166,7 @@ class MainActivity : ComponentActivity() {
                                 if (descriptor.characteristic.uuid == FTMS_CONTROL_POINT_UUID) {
                                     Log.d("BLE", "Control Point indications enabled. Now enabling Bike Data notifications...")
                                     // 3. Enable Notifications for Indoor Bike Data (Telemetry)
+                                    // We do this AFTER Control Point indications are enabled.
                                     val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
                                     val bikeDataChar = ftmsService?.getCharacteristic(INDOOR_BIKE_DATA_UUID)
                                     if (bikeDataChar != null) {
@@ -180,6 +181,7 @@ class MainActivity : ComponentActivity() {
                                 } else if (descriptor.characteristic.uuid == INDOOR_BIKE_DATA_UUID) {
                                     Log.d("BLE", "Bike Data notifications enabled. Now requesting control...")
                                     // 4. Request Control (Opcode 0x00) only AFTER all notifications are enabled
+                                    // This is the final step in the handshake.
                                     val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
                                     val controlPoint = ftmsService?.getCharacteristic(FTMS_CONTROL_POINT_UUID)
                                     if (controlPoint != null) {
@@ -270,6 +272,7 @@ class MainActivity : ComponentActivity() {
                             gatt: BluetoothGatt,
                             characteristic: BluetoothGattCharacteristic
                         ) {
+                            // 1. Handle Telemetry Data pushed from the bike
                             if (characteristic.uuid == INDOOR_BIKE_DATA_UUID) {
                                 val data = characteristic.value
                                 if (data != null && data.size >= 4) {
@@ -307,6 +310,17 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                            // 2. Handle Responses from the Control Point (e.g. handshake result, resistance update result)
+                            else if (characteristic.uuid == FTMS_CONTROL_POINT_UUID) {
+                                val data = characteristic.value
+                                if (data != null && data.size >= 3) {
+                                    val requestedOp = data[1].toInt() and 0xFF
+                                    val result = data[2].toInt() and 0xFF
+                                    Log.d("BLE", "Control Point Response: Opcode $requestedOp, Result $result (1=Success)")
+                                }
+                            }
+
+                            if (abs_resistance!=actualResistance){updateResistance(0,bluetoothGatt)}
                         }
                     }
                 }
@@ -585,26 +599,26 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
     abs_resistance = ((max_resistance - min_resistance) * (resistance / 100.0) + min_resistance).toInt()
     
     if (gatt != null) {
-        sendResistanceToMachine(gatt, abs_resistance)
+        sendResistanceToMachine(gatt)
     }
 }
 
 @SuppressLint("MissingPermission")
-fun sendResistanceToMachine(gatt: BluetoothGatt, value: Int) {
+fun sendResistanceToMachine(gatt: BluetoothGatt) {
     val service = gatt.getService(FTMS_SERVICE_UUID)
     val controlPoint = service?.getCharacteristic(FTMS_CONTROL_POINT_UUID)
     if (controlPoint != null) {
         // FTMS Set Target Resistance Level: Opcode 0x04, then SInt16 value (Little Endian)
         val data = ByteArray(3)
         data[0] = 0x04
-        data[1] = (value and 0xFF).toByte()
-        data[2] = (value shr 8 and 0xFF).toByte()
+        data[1] = (abs_resistance and 0xFF).toByte()
+        data[2] = (abs_resistance shr 8 and 0xFF).toByte()
         
         @Suppress("DEPRECATION")
         controlPoint.value = data
         @Suppress("DEPRECATION")
         gatt.writeCharacteristic(controlPoint)
-        Log.d("BLE", "Sent resistance: $value")
+        Log.d("BLE", "Sent resistance: $abs_resistance")
     }
 }
 
