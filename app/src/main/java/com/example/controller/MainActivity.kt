@@ -78,11 +78,17 @@ var max_resistance by mutableIntStateOf(100)
 var min_resistance by mutableIntStateOf(0)
 var resistance_step by mutableIntStateOf(1)
 
+var actualResistance by mutableIntStateOf(50)
+var actualCadence by mutableIntStateOf(0)
+var actualPower by mutableIntStateOf(0)
+
 val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
 val SUPPORTED_RESISTANCE_LEVEL_RANGE_UUID: UUID = UUID.fromString("00002ad6-0000-1000-8000-00805f9b34fb")
 val FTMS_CONTROL_POINT_UUID: UUID = UUID.fromString("00002ad9-0000-1000-8000-00805f9b34fb")
 val RESISTANCE_LEVEL_UUID: UUID = UUID.fromString("00002ad1-0000-1000-8000-00805f9b34fb")
+val INDOOR_BIKE_DATA_UUID: UUID = UUID.fromString("00002ad2-0000-1000-8000-00805f9b34fb")
 val CCC_DESCRIPTOR_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -92,6 +98,7 @@ class MainActivity : ComponentActivity() {
                 val context = LocalContext.current
                 var showBleDialog by remember { mutableStateOf(false) }
                 var showLocationRationale by remember { mutableStateOf(false) }
+                var showBluetoothRequest by remember {mutableStateOf(false) }
                 val discoveredDevices = remember { mutableStateListOf<BluetoothDevice>() }
                 var isScanning by remember { mutableStateOf(false) }
 
@@ -154,16 +161,33 @@ class MainActivity : ComponentActivity() {
                             descriptor: BluetoothGattDescriptor,
                             status: Int
                         ) {
-                            Log.d("BLE", "onDescriptorWrite called with status: $status")
+                            Log.d("BLE", "onDescriptorWrite called for ${descriptor.characteristic.uuid} with status: $status")
                             if (status == BluetoothGatt.GATT_SUCCESS) {
                                 if (descriptor.characteristic.uuid == FTMS_CONTROL_POINT_UUID) {
-                                    Log.d("BLE", "Indications enabled. Now requesting control...")
-                                    // 3. Request Control (Opcode 0x00) only AFTER indications are enabled
-                                    val controlPoint = descriptor.characteristic
-                                    @Suppress("DEPRECATION")
-                                    controlPoint.value = byteArrayOf(0x00)
-                                    @Suppress("DEPRECATION")
-                                    gatt.writeCharacteristic(controlPoint)
+                                    Log.d("BLE", "Control Point indications enabled. Now enabling Bike Data notifications...")
+                                    // 3. Enable Notifications for Indoor Bike Data (Telemetry)
+                                    val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
+                                    val bikeDataChar = ftmsService?.getCharacteristic(INDOOR_BIKE_DATA_UUID)
+                                    if (bikeDataChar != null) {
+                                        gatt.setCharacteristicNotification(bikeDataChar, true)
+                                        val bikeDescriptor = bikeDataChar.getDescriptor(CCC_DESCRIPTOR_UUID)
+                                        if (bikeDescriptor != null) {
+                                            @Suppress("DEPRECATION")
+                                            bikeDescriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                            gatt.writeDescriptor(bikeDescriptor)
+                                        }
+                                    }
+                                } else if (descriptor.characteristic.uuid == INDOOR_BIKE_DATA_UUID) {
+                                    Log.d("BLE", "Bike Data notifications enabled. Now requesting control...")
+                                    // 4. Request Control (Opcode 0x00) only AFTER all notifications are enabled
+                                    val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
+                                    val controlPoint = ftmsService?.getCharacteristic(FTMS_CONTROL_POINT_UUID)
+                                    if (controlPoint != null) {
+                                        @Suppress("DEPRECATION")
+                                        controlPoint.value = byteArrayOf(0x00)
+                                        @Suppress("DEPRECATION")
+                                        gatt.writeCharacteristic(controlPoint)
+                                    }
                                 }
                             } else {
                                 Log.e("BLE", "Descriptor write failed: $status")
@@ -216,7 +240,7 @@ class MainActivity : ComponentActivity() {
                                     }
 
                                     // 2. NOW enable Indications for Control Point, after Range Read is finished.
-                                    // This prevents GATT congestion by waiting for the previous read to complete.
+                                    // We will enable Bike Data notifications after this finishes in onDescriptorWrite.
                                     val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
                                     val controlPoint = ftmsService?.getCharacteristic(FTMS_CONTROL_POINT_UUID)
                                     if (controlPoint != null) {
@@ -227,17 +251,61 @@ class MainActivity : ComponentActivity() {
                                             descriptor.value = BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
                                             @Suppress("DEPRECATION")
                                             gatt.writeDescriptor(descriptor)
-                                            Log.d("BLE", "Range read finished. Now enabling indications...")
+                                            Log.d("BLE", "Range read finished. Now enabling indications for Control Point...")
                                         }
                                     }
                                 } else if (characteristic.uuid == RESISTANCE_LEVEL_UUID) {
                                     if (data != null && data.size >= 1) {
-                                        val currentRes = data[0].toInt() and 0xFF // Simple Uint8/Sint8?
+                                        val currentRes = data[0].toInt() and 0xFF
                                         Log.d("BLE", "Current Resistance from Machine: $currentRes")
                                     }
                                 }
                             } else {
                                 Log.w("BLE", "onCharacteristicRead failed: $status for ${characteristic.uuid}")
+                            }
+                        }
+
+                        @Suppress("DEPRECATION")
+                        override fun onCharacteristicChanged(
+                            gatt: BluetoothGatt,
+                            characteristic: BluetoothGattCharacteristic
+                        ) {
+                            if (characteristic.uuid == INDOOR_BIKE_DATA_UUID) {
+                                val data = characteristic.value
+                                if (data != null && data.size >= 4) {
+                                    Log.d("BLE", "Indoor Bike Data received: ${data.contentToString()}")
+                                    val flags = ((data[1].toInt() and 0xFF) shl 8) or (data[0].toInt() and 0xFF)
+                                    var offset = 2
+                                    
+                                    // Speed is mandatory in FTMS Indoor Bike Data (Unit 0.01km/h)
+                                    offset += 2 
+
+                                    // Bit 2: Instantaneous Cadence present
+                                    if ((flags and 0x04) != 0 && data.size >= offset + 2) {
+                                        val rawCadence = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
+                                        actualCadence = rawCadence / 2 // Unit is 0.5
+                                        offset += 2
+                                    }
+
+                                    // Skip Average Cadence (Bit 3)
+                                    if ((flags and 0x08) != 0) offset += 2
+                                    // Skip Total Distance (Bit 4)
+                                    if ((flags and 0x10) != 0) offset += 3
+                                    
+                                    // Bit 5: Resistance Level present
+                                    if ((flags and 0x20) != 0 && data.size >= offset + 2) {
+                                        val rawRes = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
+                                        actualResistance = rawRes
+                                        offset += 2
+                                    }
+
+                                    // Bit 6: Instantaneous Power present
+                                    if ((flags and 0x40) != 0 && data.size >= offset + 2) {
+                                        val rawPower = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
+                                        actualPower = rawPower
+                                        offset += 2
+                                    }
+                                }
                             }
                         }
                     }
@@ -260,8 +328,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-
-
                 @SuppressLint("MissingPermission")
                 fun disconnectDevice() {
                     bluetoothGatt?.disconnect()
@@ -275,32 +341,34 @@ class MainActivity : ComponentActivity() {
                         return
                     }
                     if (!bluetoothAdapter.isEnabled) {
-                        //TODO show dialog to enable bluetooth/prompt user to enable bluetooth
+                        showBluetoothRequest = true
                         Log.e("BLE", "Bluetooth is disabled")
                         return
                     }
-                    
-                    val scanner = bluetoothAdapter.bluetoothLeScanner
-                    if (scanner == null) {
-                        Log.e("BLE", "BluetoothLeScanner is null (check if Bluetooth is ON)")
-                        return
-                    }
+                    else {
+                        showBleDialog = true
+                        val scanner = bluetoothAdapter.bluetoothLeScanner
+                        if (scanner == null) {
+                            Log.e("BLE", "BluetoothLeScanner is null")
+                            return
+                        }
 
-                    // Filter for Fitness Machine Service (FTMS) UUID: 0x1826
-                    val filters = listOf(
-                        ScanFilter.Builder()
-                            .setServiceUuid(ParcelUuid.fromString("00001826-0000-1000-8000-00805f9b34fb"))
+                        // Filter for Fitness Machine Service (FTMS) UUID: 0x1826
+                        val filters = listOf(
+                            ScanFilter.Builder()
+                                .setServiceUuid(ParcelUuid.fromString("00001826-0000-1000-8000-00805f9b34fb"))
+                                .build()
+                        )
+
+                        val settings = ScanSettings.Builder()
+                            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                             .build()
-                    )
 
-                    val settings = ScanSettings.Builder()
-                        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-                        .build()
-
-                    discoveredDevices.clear()
-                    isScanning = true
-                    scanner.startScan(filters, settings, scanCallback)
-                    Log.d("BLE","Scanning started successfully for Fitness Machines")
+                        discoveredDevices.clear()
+                        isScanning = true
+                        scanner.startScan(filters, settings, scanCallback)
+                        Log.d("BLE", "Scanning started successfully for Fitness Machines")
+                    }
                 }
 
                 @SuppressLint("MissingPermission")
@@ -312,10 +380,11 @@ class MainActivity : ComponentActivity() {
                 //Permission checking logic - if required location permissions aren't granted
                 //when connect button is clicked, showLocationRationale is set to true and dialogs
                 //below are shown.
+
                 val permissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissions ->
-                    val granted = permissions.entries.all { it.value }
+                ) { permissionsMap ->
+                    val granted = permissionsMap.entries.all { it.value }
                     if (granted) {
                         showBleDialog = true
                     } else {
@@ -344,6 +413,22 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                if (showBluetoothRequest) {
+                    AlertDialog(
+                        onDismissRequest = { showBluetoothRequest = false },
+                        title = { Text("Bluetooth Required") },
+                        text = { Text("Bluetooth must be enabled to scan for devices.") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showBluetoothRequest = false
+                               }) {
+                                Text("OK")
+                            }
+                        }
+
+                    )
+                }
+
                 if (showBleDialog) {
                     BleDeviceDialog(
                         devices = discoveredDevices,
@@ -361,9 +446,7 @@ class MainActivity : ComponentActivity() {
                                 bluetoothGatt?.disconnect()
                                 bluetoothGatt?.close()
                                 bluetoothGatt = device.connectGatt(context, false, gattCallback)
-
                             }
-
                             stopScan()
                             showBleDialog = false
                             Log.d("BLE", "Selected device: ${device.name ?: device.address}")
@@ -374,13 +457,26 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = backgroundColour // Pale grey
+                    containerColor = backgroundColour
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp)
+                                .align(Alignment.TopCenter),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Label(value = actualResistance.toString().plus("%"), fontSize = 18.sp)
+                            Label(value = actualCadence.toString().plus("rpm"), fontSize = 18.sp)
+                            Label(value = actualPower.toString().plus("W"), fontSize = 18.sp)
+                        }
+
                         Column(
                             modifier = Modifier.align(Alignment.Center),
                             verticalArrangement = Arrangement.Center,
@@ -424,7 +520,7 @@ class MainActivity : ComponentActivity() {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Label(
-                                    value = resistance,
+                                    value = resistance.toString().plus("%"),
                                     fontSize = 48.sp
                                 )
                             }
@@ -458,19 +554,9 @@ class MainActivity : ComponentActivity() {
                                     val allGranted = permissions.all {
                                         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                                     }
-                                    // if all permissions are granted show dialog for BLE
                                     if (allGranted) {
-                                        val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
-                                        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                                        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
-                                        if (!isGpsEnabled && !isNetworkEnabled) {
-                                            Log.e("BLE", "Location services are disabled")
-                                            // Optional: Show a dialog asking to enable GPS
-                                        }
-                                        showBleDialog = true
                                         startScan()
-                                    // else show locations permissions pop-up
                                     } else {
                                         showLocationRationale = true
                                     }
@@ -483,7 +569,6 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 32.dp)
-
                         )
                     }
                 }
@@ -580,12 +665,12 @@ fun BleDeviceDialog(
 
 @Composable
 fun Label(
-    value: Int,
+    value: String,
     modifier: Modifier = Modifier,
     fontSize: TextUnit = TextUnit.Unspecified
 ) {
     Text(
-        text = value.toString().plus("%"),
+        text = value,
         modifier = modifier,
         fontSize = fontSize
     )
@@ -610,16 +695,5 @@ fun MyButton(
         )
     ) {
         Text(text = label)
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    ControllerTheme {
-        Column {
-            Label(resistance)
-            MyButton(onClick = {},label="+")
-        }
     }
 }
