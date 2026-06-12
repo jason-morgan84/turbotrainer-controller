@@ -98,6 +98,21 @@ class MainActivity : ComponentActivity() {
                 val bluetoothManager = remember { context.getSystemService(BLUETOOTH_SERVICE) as BluetoothManager }
                 val bluetoothAdapter = remember { bluetoothManager.adapter }
                 var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
+                var isConnected by remember { mutableStateOf(false) }
+
+                val backgroundColour = Color(0xfff5f5f2)
+
+                val permissions = remember {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        arrayOf(
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        )
+                    } else {
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                }
 
                 val gattCallback = remember {
                     object : BluetoothGattCallback() {
@@ -105,9 +120,11 @@ class MainActivity : ComponentActivity() {
                         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                             if (newState == BluetoothProfile.STATE_CONNECTED) {
                                 Log.i("BLE", "Connected to GATT server.")
+                                isConnected = true
                                 gatt.discoverServices()
                             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                                 Log.i("BLE", "Disconnected from GATT server.")
+                                isConnected = false
                                 gatt.close()
                                 if (bluetoothGatt == gatt) {
                                     bluetoothGatt = null
@@ -243,15 +260,11 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                val permissionLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissions ->
-                    val granted = permissions.entries.all { it.value }
-                    if (granted) {
-                        showBleDialog = true
-                    } else {
-                        Log.e("BLE", "Permissions denied")
-                    }
+
+
+                @SuppressLint("MissingPermission")
+                fun disconnectDevice() {
+                    bluetoothGatt?.disconnect()
                 }
 
                 @SuppressLint("MissingPermission")
@@ -262,6 +275,7 @@ class MainActivity : ComponentActivity() {
                         return
                     }
                     if (!bluetoothAdapter.isEnabled) {
+                        //TODO show dialog to enable bluetooth/prompt user to enable bluetooth
                         Log.e("BLE", "Bluetooth is disabled")
                         return
                     }
@@ -295,6 +309,20 @@ class MainActivity : ComponentActivity() {
                     bluetoothAdapter?.bluetoothLeScanner?.stopScan(scanCallback)
                 }
 
+                //Permission checking logic - if required location permissions aren't granted
+                //when connect button is clicked, showLocationRationale is set to true and dialogs
+                //below are shown.
+                val permissionLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    val granted = permissions.entries.all { it.value }
+                    if (granted) {
+                        showBleDialog = true
+                    } else {
+                        Log.e("BLE", "Permissions denied")
+                    }
+                }
+
                 if (showLocationRationale) {
                     AlertDialog(
                         onDismissRequest = { showLocationRationale = false },
@@ -303,15 +331,6 @@ class MainActivity : ComponentActivity() {
                         confirmButton = {
                             TextButton(onClick = {
                                 showLocationRationale = false
-                                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    arrayOf(
-                                        Manifest.permission.BLUETOOTH_SCAN,
-                                        Manifest.permission.BLUETOOTH_CONNECT,
-                                        Manifest.permission.ACCESS_FINE_LOCATION
-                                    )
-                                } else {
-                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                                }
                                 permissionLauncher.launch(permissions)
                             }) {
                                 Text("Grant")
@@ -355,7 +374,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = Color(0xff4b4b49) // Pale grey
+                    containerColor = backgroundColour // Pale grey
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -370,19 +389,19 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { updateResistance(10, bluetoothGatt)},
                                 label = "+10",
-                                backgroundColor = Color.hsl(0f,0.55f,0.55f),
+                                backgroundColor = Color.hsl(0f,0.40f,0.55f),
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(5, bluetoothGatt)},
                                 label = "+5",
-                                backgroundColor = Color.hsl(0f,0.55f,0.65f),
+                                backgroundColor = Color.hsl(0f,0.40f,0.65f),
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(1, bluetoothGatt)},
                                 label = "+1",
-                                backgroundColor = Color.hsl(0f,0.55f,0.75f),
+                                backgroundColor = Color.hsl(0f,0.40f,0.75f),
                                 width = 150.dp
                             )
                             Box(
@@ -393,9 +412,9 @@ class MainActivity : ComponentActivity() {
                                         val radius = size.minDimension / 2
                                         drawCircle(
                                             brush = Brush.radialGradient(
-                                                0.0f to Color.hsl(hue, 0.90f, 0.90f),
-                                                0.65f to Color.hsl(hue, 0.90f, 0.90f),
-                                                0.70f to Color.hsl(hue, 0.90f, 0.50f),
+                                                0.0f to Color.hsl(hue, 0.85f, 0.90f),
+                                                0.65f to Color.hsl(hue, 0.85f, 0.90f),
+                                                0.70f to Color.hsl(hue, 0.85f, 0.50f),
                                                 1.0f to Color.Transparent,
                                                 radius = radius
                                             ),
@@ -413,55 +432,51 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { updateResistance(-1, bluetoothGatt)},
                                 label = "-1",
-                                backgroundColor = Color.hsl(115f,0.55f,0.75f),
+                                backgroundColor = Color.hsl(115f,0.40f,0.75f),
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-5, bluetoothGatt)},
                                 label = "-5",
-                                backgroundColor = Color.hsl(115f,0.55f,0.65f),
+                                backgroundColor = Color.hsl(115f,0.40f,0.65f),
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-10, bluetoothGatt)},
                                 label = "-10",
-                                backgroundColor = Color.hsl(115f,0.55f,0.55f),
+                                backgroundColor = Color.hsl(115f,0.40f,0.55f),
                                 width = 150.dp
                             )
                         }
 
                         MyButton(
                             onClick = {
-                                val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                    arrayOf(
-                                        Manifest.permission.BLUETOOTH_SCAN,
-                                        Manifest.permission.BLUETOOTH_CONNECT,
-                                        Manifest.permission.ACCESS_FINE_LOCATION
-                                    )
+                                if (isConnected) {
+                                    disconnectDevice()
                                 } else {
-                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                                }
-
-                                val allGranted = permissions.all {
-                                    ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                                }
-
-                                if (allGranted) {
-                                    val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
-                                    val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                                    val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-
-                                    if (!isGpsEnabled && !isNetworkEnabled) {
-                                        Log.e("BLE", "Location services are disabled")
-                                        // Optional: Show a dialog asking to enable GPS
+                                    // 1: Check permissions for location services
+                                    val allGranted = permissions.all {
+                                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                                     }
-                                    showBleDialog = true
-                                    startScan()
-                                } else {
-                                    showLocationRationale = true
+                                    // if all permissions are granted show dialog for BLE
+                                    if (allGranted) {
+                                        val locationManager = context.getSystemService(LOCATION_SERVICE) as LocationManager
+                                        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                                        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+                                        if (!isGpsEnabled && !isNetworkEnabled) {
+                                            Log.e("BLE", "Location services are disabled")
+                                            // Optional: Show a dialog asking to enable GPS
+                                        }
+                                        showBleDialog = true
+                                        startScan()
+                                    // else show locations permissions pop-up
+                                    } else {
+                                        showLocationRationale = true
+                                    }
                                 }
                             },
-                            label = "Connect",
+                            label = if (isConnected) "Disconnect" else "Connect",
                             backgroundColor = Color(red = 200, green = 200, blue = 200),
                             textColor = Color.Black,
                             width = 150.dp,
