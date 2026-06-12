@@ -107,7 +107,13 @@ class MainActivity : ComponentActivity() {
                 var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
                 var isConnected by remember { mutableStateOf(false) }
 
-                val backgroundColour = Color(0xfff5f5f2)
+                val colourBackground = Color(0xfff5f9f8)
+                val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
+                val colourPlus5 = Color.hsl(0f,0.40f,0.65f)
+                val colourPlus10 = Color.hsl(0f,0.40f,0.55f)
+                val colourMinus1 = Color.hsl(115f,0.40f,0.75f)
+                val colourMinus5 = Color.hsl(115f,0.40f,0.65f)
+                val colourMinus10 = Color.hsl(115f,0.40f,0.55f)
 
                 val permissions = remember {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -471,7 +477,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = backgroundColour
+                    containerColor = colourBackground
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -496,38 +502,47 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            //TODO update colours
                             MyButton(
                                 onClick = { updateResistance(10, bluetoothGatt)},
                                 label = "+10",
-                                backgroundColor = Color.hsl(0f,0.40f,0.55f),
+                                backgroundColor = colourPlus10,
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(5, bluetoothGatt)},
                                 label = "+5",
-                                backgroundColor = Color.hsl(0f,0.40f,0.65f),
+                                backgroundColor = colourPlus5,
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(1, bluetoothGatt)},
                                 label = "+1",
-                                backgroundColor = Color.hsl(0f,0.40f,0.75f),
+                                backgroundColor = colourPlus1,
                                 width = 150.dp
                             )
                             Box(
                                 modifier = Modifier
                                     .padding(vertical = 5.dp)
-                                    .size(200.dp)
+                                    .size(250.dp)
                                     .drawBehind {
-                                        val radius = size.minDimension / 2
+                                        //TODO adjust this to go from 3f to 2f as percentage changes
+                                        val radius = size.minDimension / 3f
                                         drawCircle(
                                             brush = Brush.radialGradient(
+                                                0.0f to colourBackground,
+                                                0.75f to colourBackground,
+                                                0.80f to Color(0xff5f5fff),
+                                                1.0f to Color.Transparent,
+                                                radius = radius
+                                            ),
+                                                /*brush = Brush.radialGradient(
                                                 0.0f to Color.hsl(hue, 0.85f, 0.90f),
                                                 0.65f to Color.hsl(hue, 0.85f, 0.90f),
                                                 0.70f to Color.hsl(hue, 0.85f, 0.50f),
                                                 1.0f to Color.Transparent,
                                                 radius = radius
-                                            ),
+                                            ),*/
                                             radius = radius
                                         )
                                     },
@@ -542,19 +557,19 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { updateResistance(-1, bluetoothGatt)},
                                 label = "-1",
-                                backgroundColor = Color.hsl(115f,0.40f,0.75f),
+                                backgroundColor = colourMinus1,
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-5, bluetoothGatt)},
                                 label = "-5",
-                                backgroundColor = Color.hsl(115f,0.40f,0.65f),
+                                backgroundColor = colourMinus5,
                                 width = 150.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-10, bluetoothGatt)},
                                 label = "-10",
-                                backgroundColor = Color.hsl(115f,0.40f,0.55f),
+                                backgroundColor = colourMinus10,
                                 width = 150.dp
                             )
                         }
