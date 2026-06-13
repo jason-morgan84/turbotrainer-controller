@@ -108,12 +108,18 @@ class MainActivity : ComponentActivity() {
                 var isConnected by remember { mutableStateOf(false) }
 
                 val colourBackground = Color(0xfff5f9f8)
-                val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
+                val colourPlus1 = Color(0xff715fff)
+                val colourPlus5 = Color(0xff835fff)
+                val colourPlus10 = Color(0xff965fff)
+                val colourMinus1 = Color(0xff7777e7)
+                val colourMinus5 = Color(0xff8787d7)
+                val colourMinus10 = Color(0xff9797c7)
+                /*val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
                 val colourPlus5 = Color.hsl(0f,0.40f,0.65f)
                 val colourPlus10 = Color.hsl(0f,0.40f,0.55f)
                 val colourMinus1 = Color.hsl(115f,0.40f,0.75f)
                 val colourMinus5 = Color.hsl(115f,0.40f,0.65f)
-                val colourMinus10 = Color.hsl(115f,0.40f,0.55f)
+                val colourMinus10 = Color.hsl(115f,0.40f,0.55f)*/
 
                 val permissions = remember {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -502,38 +508,41 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            //TODO update colours
                             MyButton(
                                 onClick = { updateResistance(10, bluetoothGatt)},
                                 label = "+10",
                                 backgroundColor = colourPlus10,
-                                width = 150.dp
+                                width = 150.dp,
+                                roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(5, bluetoothGatt)},
                                 label = "+5",
                                 backgroundColor = colourPlus5,
-                                width = 150.dp
+                                width = 125.dp,
+                                roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(1, bluetoothGatt)},
                                 label = "+1",
                                 backgroundColor = colourPlus1,
-                                width = 150.dp
+                                width = 100.dp,
+                                roundCorners = 24.dp
                             )
                             Box(
                                 modifier = Modifier
                                     .padding(vertical = 5.dp)
-                                    .size(250.dp)
+                                    .size(200.dp)
                                     .drawBehind {
-                                        //TODO adjust this to go from 3f to 2f as percentage changes
-                                        val radius = size.minDimension / 3f
+                                        val radius = size.minDimension / (2.4 - 0.004 * resistance).toFloat()
+                                        val final = (0.9 + 0.0005 * resistance).toFloat()
                                         drawCircle(
                                             brush = Brush.radialGradient(
                                                 0.0f to colourBackground,
-                                                0.75f to colourBackground,
-                                                0.80f to Color(0xff5f5fff),
-                                                1.0f to Color.Transparent,
+                                                0.73f to colourBackground,
+                                                0.78f to Color(0xff5f5fff),
+                                                0.8f to Color(0xff5f5fff),
+                                                final to Color.Transparent,
                                                 radius = radius
                                             ),
                                                 /*brush = Brush.radialGradient(
@@ -558,19 +567,22 @@ class MainActivity : ComponentActivity() {
                                 onClick = { updateResistance(-1, bluetoothGatt)},
                                 label = "-1",
                                 backgroundColor = colourMinus1,
-                                width = 150.dp
+                                width = 100.dp,
+                                roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-5, bluetoothGatt)},
                                 label = "-5",
                                 backgroundColor = colourMinus5,
-                                width = 150.dp
+                                width = 125.dp,
+                                roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-10, bluetoothGatt)},
                                 label = "-10",
                                 backgroundColor = colourMinus10,
-                                width = 150.dp
+                                width = 150.dp,
+                                roundCorners = 24.dp
                             )
                         }
 
@@ -710,6 +722,7 @@ fun MyButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     label: String = "Click Me",
+    roundCorners: Dp = 4.dp,
     width: Dp? = null,
     backgroundColor: Color? = null,
     textColor: Color? = null
@@ -717,7 +730,7 @@ fun MyButton(
     Button(
         onClick = onClick,
         modifier = if (width != null) modifier.width(width) else modifier,
-        shape = RoundedCornerShape(4.dp),
+        shape = RoundedCornerShape(roundCorners),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor ?: ButtonDefaults.buttonColors().containerColor,
             contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
