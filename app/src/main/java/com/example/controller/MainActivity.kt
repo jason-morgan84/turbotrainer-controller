@@ -14,7 +14,6 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanSettings
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
 import android.os.ParcelUuid
@@ -111,9 +110,18 @@ class MainActivity : ComponentActivity() {
                 val colourPlus1 = Color(0xff715fff)
                 val colourPlus5 = Color(0xff835fff)
                 val colourPlus10 = Color(0xff965fff)
+                val colourMiddle = Color(0xff5f5fff)
                 val colourMinus1 = Color(0xff7777e7)
                 val colourMinus5 = Color(0xff8787d7)
                 val colourMinus10 = Color(0xff9797c7)
+
+                val gradientSteps = arrayOf(0,50,100)
+                val gradientColours = arrayOf(colourMinus10, colourMiddle, colourPlus10)
+
+                val gradient = remember(gradientColours) {
+                    createGradient(gradientSteps, gradientColours)
+                    // assuming createGradient returns something, or just performs a setup
+                }
                 /*val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
                 val colourPlus5 = Color.hsl(0f,0.40f,0.65f)
                 val colourPlus10 = Color.hsl(0f,0.40f,0.55f)
@@ -628,6 +636,32 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
     if (gatt != null) {
         sendResistanceToMachine(gatt)
     }
+}
+
+fun createGradient(stepPercentage: Array<Int>, stepColor: Array<Color>): Array<Color?> {
+    val colourArray: Array<Color?> = arrayOfNulls(100)
+
+    for (index in 0 until stepPercentage.size - 1){
+        Log.d(index.toString(), stepPercentage[index].toString())
+        val currentColorR = stepColor[index].red
+        val currentColorG = stepColor[index].green
+        val currentColorB = stepColor[index].blue
+        val nextColorR = stepColor[index + 1].red
+        val nextColorG = stepColor[index + 1].green
+        val nextColorB = stepColor[index + 1].blue
+        for (i in stepPercentage[index] until stepPercentage[index + 1]) {
+            val interpolateR = (nextColorR - currentColorR) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorR
+            val interpolateG = (nextColorG - currentColorG) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorG
+            val interpolateB = (nextColorB - currentColorB) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorB
+            colourArray[stepPercentage[index] + i] = Color(interpolateR, interpolateG, interpolateB)
+        }
+
+    }
+
+    for (item in colourArray.indices){
+        Log.d(item.toString(), colourArray[item].toString())
+    }
+    return colourArray
 }
 
 @SuppressLint("MissingPermission")
