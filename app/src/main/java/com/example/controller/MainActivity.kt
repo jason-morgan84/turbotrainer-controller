@@ -24,6 +24,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -120,7 +121,7 @@ class MainActivity : ComponentActivity() {
 
                 val gradient = remember(gradientColours) {
                     createGradient(gradientSteps, gradientColours)
-                    // assuming createGradient returns something, or just performs a setup
+
                 }
                 /*val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
                 val colourPlus5 = Color.hsl(0f,0.40f,0.65f)
@@ -500,9 +501,11 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
                                 .padding(top = 16.dp)
-                                .align(Alignment.TopCenter),
+                                .fillMaxWidth(0.9f)
+                                .background(color = colourMinus1, shape = RoundedCornerShape(24.dp))
+                                .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -548,18 +551,11 @@ class MainActivity : ComponentActivity() {
                                             brush = Brush.radialGradient(
                                                 0.0f to colourBackground,
                                                 0.73f to colourBackground,
-                                                0.78f to Color(0xff5f5fff),
-                                                0.8f to Color(0xff5f5fff),
+                                                0.78f to gradient[resistance],
+                                                0.8f to gradient[resistance],
                                                 final to Color.Transparent,
                                                 radius = radius
                                             ),
-                                                /*brush = Brush.radialGradient(
-                                                0.0f to Color.hsl(hue, 0.85f, 0.90f),
-                                                0.65f to Color.hsl(hue, 0.85f, 0.90f),
-                                                0.70f to Color.hsl(hue, 0.85f, 0.50f),
-                                                1.0f to Color.Transparent,
-                                                radius = radius
-                                            ),*/
                                             radius = radius
                                         )
                                     },
@@ -630,7 +626,6 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
     resistance += value
     if (resistance>100) { resistance = 100 }
     if (resistance < 0) { resistance = 0 }
-    hue = (120 - resistance * 1.2).toFloat()
     abs_resistance = ((max_resistance - min_resistance) * (resistance / 100.0) + min_resistance).toInt()
     
     if (gatt != null) {
@@ -638,29 +633,39 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
     }
 }
 
-fun createGradient(stepPercentage: Array<Int>, stepColor: Array<Color>): Array<Color?> {
-    val colourArray: Array<Color?> = arrayOfNulls(100)
+fun createGradient(stepPercentage: Array<Int>, stepColor: Array<Color>): Array<Color> {
+    val colourArray = Array(101) { Color.Transparent }
 
-    for (index in 0 until stepPercentage.size - 1){
-        Log.d(index.toString(), stepPercentage[index].toString())
-        val currentColorR = stepColor[index].red
-        val currentColorG = stepColor[index].green
-        val currentColorB = stepColor[index].blue
-        val nextColorR = stepColor[index + 1].red
-        val nextColorG = stepColor[index + 1].green
-        val nextColorB = stepColor[index + 1].blue
-        for (i in stepPercentage[index] until stepPercentage[index + 1]) {
-            val interpolateR = (nextColorR - currentColorR) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorR
-            val interpolateG = (nextColorG - currentColorG) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorG
-            val interpolateB = (nextColorB - currentColorB) / (stepPercentage[index + 1] - stepPercentage[index]) * (i - stepPercentage[index]) + currentColorB
-            colourArray[stepPercentage[index] + i] = Color(interpolateR, interpolateG, interpolateB)
+    for (currentStep in 0 until stepPercentage.size - 1) {
+        val stepLength = stepPercentage[currentStep + 1] - stepPercentage[currentStep]
+
+        val changeR = (stepColor[currentStep + 1].red - stepColor[currentStep].red) / stepLength
+        val changeG = (stepColor[currentStep + 1].green - stepColor[currentStep].green) / stepLength
+        val changeB = (stepColor[currentStep + 1].blue - stepColor[currentStep].blue) / stepLength
+
+
+        for (i in stepPercentage[currentStep] until stepPercentage[currentStep + 1]) {
+            val distanceFromStart = i - stepPercentage[currentStep]
+            val interpolateR = stepColor[currentStep].red + changeR * distanceFromStart
+            val interpolateG = stepColor[currentStep].green + changeG * distanceFromStart
+            val interpolateB = stepColor[currentStep].blue + changeB * distanceFromStart
+
+            colourArray[i] = Color(interpolateR, interpolateG, interpolateB)
         }
-
     }
+    colourArray[100] = stepColor[stepColor.size - 1]
+            //ie 0, 25, 50, 100
+            //first step: i is 0 - 24
+            //second step: i is 24 - 49
+            //third step - i is 50 - 99
+            //interpolation logic:
+            // for each colour:
+            // get color difference between steps
+            // divide by value difference between steps to get difference in colour for each step
+            // multiply by how far into current step we are (i - stepPercentage[currentStep])
+            // add to starting value for that colour
+            //Log.d("i", i.toString())
 
-    for (item in colourArray.indices){
-        Log.d(item.toString(), colourArray[item].toString())
-    }
     return colourArray
 }
 
