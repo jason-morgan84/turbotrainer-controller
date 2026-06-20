@@ -24,6 +24,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -87,6 +93,9 @@ var actualEnergy by mutableIntStateOf(0)
 
 var actualDistance by mutableIntStateOf(0)
 
+val appStartTime = System.currentTimeMillis()
+val testCadence = 60
+val maxAlpha = 1.0f
 val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
 val SUPPORTED_RESISTANCE_LEVEL_RANGE_UUID: UUID = UUID.fromString("00002ad6-0000-1000-8000-00805f9b34fb")
 val FTMS_CONTROL_POINT_UUID: UUID = UUID.fromString("00002ad9-0000-1000-8000-00805f9b34fb")
@@ -128,6 +137,20 @@ class MainActivity : ComponentActivity() {
                     createGradient(gradientSteps, gradientColours)
 
                 }
+
+                val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
+                val pulseAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.7f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(
+                            durationMillis = if (actualCadence > 0) 30000 / actualCadence else 500,
+                            easing = LinearEasing
+                        ),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "Alpha"
+                )
 
                 val permissions = remember {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -592,14 +615,18 @@ class MainActivity : ComponentActivity() {
                                     .padding(vertical = 5.dp)
                                     .size(200.dp)
                                     .drawBehind {
+                                        //TODO - variables for max/min radius to adjust following two variables
                                         val radius = size.minDimension / (2.4 - 0.004 * resistance).toFloat()
                                         val final = (0.9 + 0.0005 * resistance).toFloat()
+                                        val alpha = (if (actualCadence > 0) pulseAlpha else 1f) * maxAlpha
+                                        val colour = gradient[resistance].copy(alpha = alpha)
+                                        
                                         drawCircle(
                                             brush = Brush.radialGradient(
                                                 0.0f to colourBackground,
                                                 0.73f to colourBackground,
-                                                0.78f to gradient[resistance],
-                                                0.8f to gradient[resistance],
+                                                0.78f to colour,
+                                                0.8f to colour,
                                                 final to Color.Transparent,
                                                 radius = radius
                                             ),
