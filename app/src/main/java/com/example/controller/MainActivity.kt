@@ -73,7 +73,6 @@ import com.example.controller.ui.theme.ControllerTheme
 
 var resistance by mutableIntStateOf(50)
 var abs_resistance by mutableIntStateOf(50)
-var hue by mutableFloatStateOf(60f)
 var max_resistance by mutableIntStateOf(100)
 var min_resistance by mutableIntStateOf(0)
 var resistance_step by mutableIntStateOf(1)
@@ -81,6 +80,12 @@ var resistance_step by mutableIntStateOf(1)
 var actualResistance by mutableIntStateOf(50)
 var actualCadence by mutableIntStateOf(0)
 var actualPower by mutableIntStateOf(0)
+
+var averagePower by mutableIntStateOf(0)
+
+var actualEnergy by mutableIntStateOf(0)
+
+var actualDistance by mutableIntStateOf(0)
 
 val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
 val SUPPORTED_RESISTANCE_LEVEL_RANGE_UUID: UUID = UUID.fromString("00002ad6-0000-1000-8000-00805f9b34fb")
@@ -123,12 +128,6 @@ class MainActivity : ComponentActivity() {
                     createGradient(gradientSteps, gradientColours)
 
                 }
-                /*val colourPlus1 = Color.hsl(0f,0.40f,0.75f)
-                val colourPlus5 = Color.hsl(0f,0.40f,0.65f)
-                val colourPlus10 = Color.hsl(0f,0.40f,0.55f)
-                val colourMinus1 = Color.hsl(115f,0.40f,0.75f)
-                val colourMinus5 = Color.hsl(115f,0.40f,0.65f)
-                val colourMinus10 = Color.hsl(115f,0.40f,0.55f)*/
 
                 val permissions = remember {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -304,6 +303,9 @@ class MainActivity : ComponentActivity() {
                                     // Speed is mandatory in FTMS Indoor Bike Data (Unit 0.01km/h)
                                     offset += 2 
 
+                                    // Bit 1: Average Speed present
+                                    if ((flags and 0x02) != 0) offset += 2
+
                                     // Bit 2: Instantaneous Cadence present
                                     if ((flags and 0x04) != 0 && data.size >= offset + 2) {
                                         val rawCadence = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
@@ -311,10 +313,17 @@ class MainActivity : ComponentActivity() {
                                         offset += 2
                                     }
 
-                                    // Skip Average Cadence (Bit 3)
+                                    // Bit 3: Average Cadence present
                                     if ((flags and 0x08) != 0) offset += 2
-                                    // Skip Total Distance (Bit 4)
-                                    if ((flags and 0x10) != 0) offset += 3
+
+                                    // Bit 4: Total Distance present
+                                    if ((flags and 0x10) != 0 && data.size >= offset + 3) {
+                                        val distance = (data[offset].toInt() and 0xFF) or
+                                                       ((data[offset + 1].toInt() and 0xFF) shl 8) or
+                                                       ((data[offset + 2].toInt() and 0xFF) shl 16)
+                                        actualDistance = distance
+                                        offset += 3
+                                    }
                                     
                                     // Bit 5: Resistance Level present
                                     if ((flags and 0x20) != 0 && data.size >= offset + 2) {
@@ -328,6 +337,21 @@ class MainActivity : ComponentActivity() {
                                         val rawPower = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
                                         actualPower = rawPower
                                         offset += 2
+                                    }
+
+                                    // Bit 7: Average Power present
+                                    if ((flags and 0x80) != 0 && data.size >= offset + 2) {
+                                        val avgPower = ((data[offset + 1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
+                                        averagePower = avgPower
+                                        offset += 2
+                                    }
+
+                                    // Bit 8: Expended Energy present
+                                    if ((flags and 0x100) != 0 && data.size >= offset + 2) {
+                                        val totalEnergy = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
+                                        actualEnergy = totalEnergy
+                                        // Total (2), Energy per Hour (2), Energy per Minute (1)
+                                        offset += 5
                                     }
                                 }
                             }
@@ -413,7 +437,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 //Permission checking logic - if required location permissions aren't granted
-                //when connect button is clicked, showLocationRationale is set to true and dialogs
+                //when connect button is clicked, showLocationRationale is set to true and dialogues
                 //below are shown.
 
                 val permissionLauncher = rememberLauncherForActivityResult(
@@ -499,19 +523,42 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(top = 16.dp)
-                                .fillMaxWidth(0.9f)
-                                .background(color = colourMinus1, shape = RoundedCornerShape(24.dp))
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Label(value = actualResistance.toString().plus("%"), fontSize = 18.sp)
-                            Label(value = actualCadence.toString().plus("rpm"), fontSize = 18.sp)
-                            Label(value = actualPower.toString().plus("W"), fontSize = 18.sp)
+                                .background(
+                                    color = colourMinus1,
+                                    shape = RoundedCornerShape(24.dp)
+                                ),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        )
+                        {
+                            Row(
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .fillMaxWidth(0.6f)
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Label(value = actualPower.toString().plus(" W"), fontSize = 32.sp)
+                                Label(value = actualCadence.toString().plus(" rpm"),fontSize = 32.sp)
+
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .padding(top = 8.dp)
+                                    .fillMaxWidth(0.6f)
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
+                                Label(value = actualDistance.toString().plus(" m"), fontSize = 18.sp)
+                                Label(value = actualEnergy.toString().plus(" kcal"),fontSize = 18.sp)
+
+                            }
                         }
 
                         Column(
@@ -660,7 +707,7 @@ fun createGradient(stepPercentage: Array<Int>, stepColor: Array<Color>): Array<C
             //third step - i is 50 - 99
             //interpolation logic:
             // for each colour:
-            // get color difference between steps
+            // get colour difference between steps
             // divide by value difference between steps to get difference in colour for each step
             // multiply by how far into current step we are (i - stepPercentage[currentStep])
             // add to starting value for that colour
