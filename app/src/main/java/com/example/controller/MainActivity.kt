@@ -59,6 +59,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,12 +92,20 @@ var actualPower by mutableIntStateOf(0)
 
 var averagePower by mutableIntStateOf(0)
 
+var count by mutableIntStateOf(1)
+
 var actualEnergy by mutableIntStateOf(0)
 
-var actualDistance by mutableIntStateOf(0)
+var actualDistance by mutableFloatStateOf(0F)
+var averageSpeed by mutableIntStateOf(0)
 
-val appStartTime = System.currentTimeMillis()
-val testCadence = 60
+var totalPower by mutableIntStateOf(0)
+
+var totalTime by mutableLongStateOf(0)
+var currentTime by mutableLongStateOf(0)
+var lastTime by mutableLongStateOf(0)
+
+
 val maxAlpha = 1.0f
 val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
 val SUPPORTED_RESISTANCE_LEVEL_RANGE_UUID: UUID = UUID.fromString("00002ad6-0000-1000-8000-00805f9b34fb")
@@ -320,10 +329,14 @@ class MainActivity : ComponentActivity() {
                             if (characteristic.uuid == INDOOR_BIKE_DATA_UUID) {
                                 val data = characteristic.value
                                 if (data != null && data.size >= 4) {
-                                    Log.d("BLE", "Indoor Bike Data received: ${data.contentToString()}")
                                     val flags = ((data[1].toInt() and 0xFF) shl 8) or (data[0].toInt() and 0xFF)
-                                    var offset = 2
                                     
+                                    // Log flags and raw data to identify active fields
+                                    Log.d("BLE", "Flags (binary): ${flags.toString(2).padStart(16, '0')}")
+                                    Log.d("BLE", "Indoor Bike Data received: ${data.contentToString()}")
+
+                                    var offset = 2
+
                                     // Speed is mandatory in FTMS Indoor Bike Data (Unit 0.01km/h)
                                     offset += 2 
 
@@ -341,14 +354,8 @@ class MainActivity : ComponentActivity() {
                                     if ((flags and 0x08) != 0) offset += 2
 
                                     // Bit 4: Total Distance present
-                                    if ((flags and 0x10) != 0 && data.size >= offset + 3) {
-                                        val distance = (data[offset].toInt() and 0xFF) or
-                                                       ((data[offset + 1].toInt() and 0xFF) shl 8) or
-                                                       ((data[offset + 2].toInt() and 0xFF) shl 16)
-                                        actualDistance = distance
-                                        offset += 3
-                                    }
-                                    
+                                    if ((flags and 0x10) != 0 && data.size >= offset + 3) offset += 3
+
                                     // Bit 5: Resistance Level present
                                     if ((flags and 0x20) != 0 && data.size >= offset + 2) {
                                         val rawRes = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
@@ -363,20 +370,8 @@ class MainActivity : ComponentActivity() {
                                         offset += 2
                                     }
 
-                                    // Bit 7: Average Power present
-                                    if ((flags and 0x80) != 0 && data.size >= offset + 2) {
-                                        val avgPower = ((data[offset + 1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
-                                        averagePower = avgPower
-                                        offset += 2
-                                    }
 
-                                    // Bit 8: Expended Energy present
-                                    if ((flags and 0x100) != 0 && data.size >= offset + 2) {
-                                        val totalEnergy = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
-                                        actualEnergy = totalEnergy
-                                        // Total (2), Energy per Hour (2), Energy per Minute (1)
-                                        offset += 5
-                                    }
+
                                 }
                             }
                             // 2. Handle Responses from the Control Point (e.g. handshake result, resistance update result)
@@ -390,6 +385,36 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (abs_resistance!=actualResistance){updateResistance(0,bluetoothGatt)}
+
+                            if (actualPower > 0)
+                            {
+                                totalPower += actualPower
+                                if (currentTime == 0L)
+                                {
+                                    currentTime = System.currentTimeMillis()
+                                    lastTime = currentTime
+                                }
+                                lastTime = currentTime
+                                currentTime = System.currentTimeMillis()
+                                totalTime += (currentTime - lastTime)
+                                averagePower = totalPower / count
+                                actualEnergy = ((totalPower*(totalTime/1000))/4184).toInt()
+                                count += 1
+                                //TODO: fix distance
+                                //Calculate speed and distance
+                                //speed = P/(M*1.1)
+                                averageSpeed = (averagePower/(60*1.1)).toInt()
+                                actualDistance = (averageSpeed*(totalTime/1000).toFloat())/1000
+
+                                Log.d("Stats","Time: ${(currentTime-lastTime)}")
+                                Log.d("Stats","Total Time: $totalTime")
+                                Log.d("Stats","Total Power: $totalPower")
+                                Log.d("Stats","Average Power: $averagePower")
+                                Log.d("Stats","Total Energy: $actualEnergy")
+
+                            }
+
+
                         }
                     }
                 }
@@ -584,7 +609,7 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
-                                Label(value = actualDistance.toString().plus(" m"), fontSize = 18.sp)
+                                Label(value = actualDistance.toString().plus(" km"), fontSize = 18.sp)
                                 Label(value = actualEnergy.toString().plus(" kcal"),fontSize = 18.sp)
 
                             }
