@@ -31,6 +31,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,6 +68,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -137,7 +139,6 @@ class MainActivity : ComponentActivity() {
                     createGradient(gradientSteps, gradientColours)
 
                 }
-
                 val infiniteTransition = rememberInfiniteTransition(label = "Pulse")
                 val pulseAlpha by infiniteTransition.animateFloat(
                     initialValue = 0.7f,
@@ -546,11 +547,18 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
+
                         Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
+                                .padding(top = 16.dp)
+                                .border(
+                                    width = 8.dp,
+                                    color = colourPlus10,
+                                    shape = RoundedCornerShape(24.dp)
+                                )
                                 .background(
-                                    color = colourMinus1,
+                                    color = colourBackground,
                                     shape = RoundedCornerShape(24.dp)
                                 ),
                             verticalArrangement = Arrangement.Center,
@@ -559,9 +567,8 @@ class MainActivity : ComponentActivity() {
                         {
                             Row(
                                 modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .fillMaxWidth(0.6f)
-                                    .padding(vertical = 8.dp),
+                                    .padding(top = 12.dp)
+                                    .fillMaxWidth(0.6f),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -571,9 +578,8 @@ class MainActivity : ComponentActivity() {
                             }
                             Row(
                                 modifier = Modifier
-                                    .padding(top = 8.dp)
-                                    .fillMaxWidth(0.6f)
-                                    .padding(vertical = 8.dp),
+                                    .padding(bottom = 12.dp,top = 4.dp)
+                                    .fillMaxWidth(0.6f),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -615,22 +621,18 @@ class MainActivity : ComponentActivity() {
                                     .padding(vertical = 5.dp)
                                     .size(200.dp)
                                     .drawBehind {
-                                        //TODO - variables for max/min radius to adjust following two variables
-                                        val radius = size.minDimension / (2.4 - 0.004 * resistance).toFloat()
-                                        val final = (0.9 + 0.0005 * resistance).toFloat()
+
+                                        val minRadius = 175.toFloat()
+                                        val maxRadius = 225.toFloat()
+                                        val radius = minRadius + (maxRadius - minRadius) * (resistance / 100.0).toFloat()
                                         val alpha = (if (actualCadence > 0) pulseAlpha else 1f) * maxAlpha
                                         val colour = gradient[resistance].copy(alpha = alpha)
-                                        
+
                                         drawCircle(
-                                            brush = Brush.radialGradient(
-                                                0.0f to colourBackground,
-                                                0.73f to colourBackground,
-                                                0.78f to colour,
-                                                0.8f to colour,
-                                                final to Color.Transparent,
-                                                radius = radius
-                                            ),
-                                            radius = radius
+
+                                            radius = radius,
+                                            color = colour,
+                                            style = Stroke(width = 8.dp.toPx())
                                         )
                                     },
                                 contentAlignment = Alignment.Center
@@ -685,6 +687,7 @@ class MainActivity : ComponentActivity() {
                             backgroundColor = Color(red = 200, green = 200, blue = 200),
                             textColor = Color.Black,
                             width = 150.dp,
+                            roundCorners = 12.dp,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 32.dp)

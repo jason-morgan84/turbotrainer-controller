@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="100mm"
+   height="100mm"
+   viewBox="0 0 100 100"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   sodipodi:docname="icon.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="1"
+     inkscape:cx="200"
+     inkscape:cy="183.5"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <inkscape:path-effect
+       effect="fillet_chamfer"
+       id="path-effect1"
+       is_visible="true"
+       lpeversion="1"
+       nodesatellites_param="F,0,1,1,0,3.9858569,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1 | F,0,0,1,0,0,0,1 @ F,0,1,1,0,3.9858569,0,1 @ F,0,0,1,0,3.9858569,0,1 @ F,0,0,1,0,0,0,1 @ F,0,0,1,0,0,0,1"
+       radius="0"
+       unit="px"
+       method="auto"
+       mode="F"
+       chamfer_steps="1"
+       flexible="false"
+       use_knot_distance="true"
+       apply_no_radius="true"
+       apply_with_radius="true"
+       only_selected="false"
+       hide_knots="false" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#f5f9f8;fill-opacity:1;stroke:none;stroke-width:2.99931;stroke-dasharray:none;stroke-opacity:1"
+       id="rect8"
+       width="100"
+       height="100"
+       x="-1.7763568e-15"
+       y="-1.7763568e-15"
+       rx="2.9468899"
+       ry="2.9468899" />
+    <g
+       id="g8"
+       transform="matrix(0.99004218,0,0,0.99004218,19.30285,-108.45208)">
+      <path
+         id="path16-8"
+         style="font-variation-settings:normal;fill:#5f5fff;fill-opacity:1;stroke:none;stroke-width:2.325;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;stop-color:#000000"
+         d="m 21.801888,152.9197 -4.785874,11.2615 c 2.402298,5.61156 7.967101,9.52965 14.471984,9.52965 4.15628,0 7.92942,-1.59955 10.73888,-4.21835 L 26.07849,152.16709 a 2.5889659,2.5889659 170.0191 0 0 -4.276602,0.75261 z m -6.453473,15.1858 -3.999826,9.41151 a 2.6369236,2.6369236 56.512572 0 0 2.426849,3.66832 l 35.364143,0 a 1.7337068,1.7337068 113.50734 0 0 1.268256,-2.91577 l -5.928379,-6.36067 c -3.40758,3.1782 -7.97723,5.12578 -12.99146,5.12578 -6.78818,0 -12.760884,-3.56931 -16.139583,-8.92917 z"
+         inkscape:path-effect="#path-effect1"
+         inkscape:original-d="m 23.360846,149.25136 -6.344832,14.92984 c 2.402298,5.61156 7.967101,9.52965 14.471984,9.52965 4.15628,0 7.92942,-1.59955 10.73888,-4.21835 z m -8.012431,18.85414 -5.558834,13.07983 h 43.335857 l -8.64598,-9.27644 c -3.40758,3.1782 -7.97723,5.12578 -12.99146,5.12578 -6.78818,0 -12.760884,-3.56931 -16.139583,-8.92917 z" />
+      <path
+         id="circle17-2"
+         style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#5f5fff;enable-background:accumulate;stop-color:#000000"
+         d="m 31.487998,138.90625 c -10.509205,0 -19.06447,8.55476 -19.06447,19.06396 0,3.72102 1.072812,7.19722 2.924886,10.13529 l 1.667599,-3.9243 c -0.815196,-1.90422 -1.266073,-4.00364 -1.266073,-6.21099 0,-8.71222 7.025833,-15.73806 15.738058,-15.73806 8.71222,0 15.74013,7.02584 15.74013,15.73806 0,4.55591 -1.92167,8.65167 -5.00125,11.52229 l 2.25258,2.41639 c 3.73422,-3.4829 6.07301,-8.44375 6.07301,-13.93868 0,-10.5092 -8.55527,-19.06396 -19.06447,-19.06396 z" />
+    </g>
+  </g>
+</svg>
