@@ -636,7 +636,7 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
-                                Label(value = (round(actualDistance/100)/10).toString().plus(" km"), fontSize = 18.sp)
+                                Label(value = (round(actualDistance/10)/100).toString().plus(" km"), fontSize = 18.sp)
                                 Label(value = actualEnergy.toString().plus(" kcal"),fontSize = 18.sp)
 
                             }
