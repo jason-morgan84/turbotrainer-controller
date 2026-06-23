@@ -92,10 +92,7 @@ var actualResistance by mutableIntStateOf(50)
 var actualCadence by mutableIntStateOf(0)
 var actualPower by mutableIntStateOf(0)
 
-var averagePower by mutableIntStateOf(0)
-
-var count by mutableIntStateOf(1)
-
+var averagePower by mutableFloatStateOf(0F)
 var actualEnergy by mutableIntStateOf(0)
 
 var actualDistance by mutableDoubleStateOf(0.0)
@@ -386,8 +383,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (abs_resistance!=actualResistance){updateResistance(0,bluetoothGatt)}
-                            actualPower = resistance * 2
+                            if (abs_resistance != actualResistance){updateResistance(0,bluetoothGatt)}
+
                             if (actualPower > 0)
                             {
                                 totalPower += actualPower
@@ -398,11 +395,14 @@ class MainActivity : ComponentActivity() {
                                 }
                                 lastTime = currentTime
                                 currentTime = System.currentTimeMillis()
-                                totalTime += (currentTime - lastTime)
-                                averagePower = totalPower / count
+                                val difference = currentTime - lastTime
+                                averagePower = (averagePower * totalTime + (actualPower * (difference)))/(totalTime + difference)
+                                totalTime += difference
+                                //averagePower = totalPower / count
+
                                 actualEnergy = ((totalPower*(totalTime/1000))/4184).toInt()
-                                count += 1
-                                //TODO: adjust average power/speed to take into account time between data
+
+
 
                                 //0.5 * p * Cd * A * v^3 + m * G * Crr * V^2 = power
                                 //p is roughly 1.2 at 18 degrees at sea level
