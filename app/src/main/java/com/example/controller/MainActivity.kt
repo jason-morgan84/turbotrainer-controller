@@ -57,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -78,6 +79,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.controller.ui.theme.ControllerTheme
+import kotlin.math.round
 
 
 var resistance by mutableIntStateOf(50)
@@ -96,8 +98,8 @@ var count by mutableIntStateOf(1)
 
 var actualEnergy by mutableIntStateOf(0)
 
-var actualDistance by mutableFloatStateOf(0F)
-var averageSpeed by mutableIntStateOf(0)
+var actualDistance by mutableDoubleStateOf(0.0)
+var averageSpeed by mutableDoubleStateOf(0.0)
 
 var totalPower by mutableIntStateOf(0)
 
@@ -385,7 +387,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (abs_resistance!=actualResistance){updateResistance(0,bluetoothGatt)}
-
+                            actualPower = resistance * 2
                             if (actualPower > 0)
                             {
                                 totalPower += actualPower
@@ -400,17 +402,42 @@ class MainActivity : ComponentActivity() {
                                 averagePower = totalPower / count
                                 actualEnergy = ((totalPower*(totalTime/1000))/4184).toInt()
                                 count += 1
-                                //TODO: fix distance
-                                //Calculate speed and distance
-                                //speed = P/(M*1.1)
-                                averageSpeed = (averagePower/(60*1.1)).toInt()
-                                actualDistance = (averageSpeed*(totalTime/1000).toFloat())/1000
+                                //TODO: adjust average power/speed to take into account time between data
 
-                                Log.d("Stats","Time: ${(currentTime-lastTime)}")
-                                Log.d("Stats","Total Time: $totalTime")
-                                Log.d("Stats","Total Power: $totalPower")
-                                Log.d("Stats","Average Power: $averagePower")
-                                Log.d("Stats","Total Energy: $actualEnergy")
+                                //0.5 * p * Cd * A * v^3 + m * G * Crr * V^2 = power
+                                //p is roughly 1.2 at 18 degrees at sea level
+                                //Typical CdA for average sized cyclist on hoods is 0.32 - 0.36
+                                //G is roughly 10
+                                //Take mass as 60kg
+                                //Crr on smooth tarmac for reasonable road bike = 0.003-0.005
+                                //ignoring v term as it relates to headwind (0 indoors)
+
+                                // power = 0.2*v^3 + 2.4 * v^2
+                                // power = v2(0.2 v + 2.4)
+                                // may need to reduce power to ~5% to take into account mechanical loss
+
+                                //newtons method:
+                                //x1 = x0 - f(x0)/f'(x0)
+                                //f(x) = 0.2*v^3 + 2.4 * v^2 - averagePower
+                                //f'(x) = 0.6v^2 + 4.8v
+                                //x0 = previous average speed
+                                //x1 =
+
+
+                                var x0 = 5.0
+                                var dfdv = 0.2 * x0 * x0 * x0 + 2.4 *x0 *x0 - averagePower
+                                var d2fdv2 = 0.6 * x0 * x0 + 4.8 * x0
+                                var x1 = x0 - (dfdv/d2fdv2)
+
+                                while (round(x0*10)/10!= round(x1*10)/10) {
+                                    x0 = x1
+                                    dfdv = 0.2 * x0 * x0 * x0 + 2.4 *x0 *x0 - averagePower
+                                    d2fdv2 = 0.6 * x0 * x0 + 4.8 * x0
+                                    x1 = x0 - (dfdv/d2fdv2)
+                                }
+                                averageSpeed = x1
+                                Log.d("Stats","Average Speed: $x1")
+                                actualDistance = averageSpeed*(totalTime/1000)
 
                             }
 
@@ -609,7 +636,7 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
-                                Label(value = actualDistance.toString().plus(" km"), fontSize = 18.sp)
+                                Label(value = (round(actualDistance/100)/10).toString().plus(" km"), fontSize = 18.sp)
                                 Label(value = actualEnergy.toString().plus(" kcal"),fontSize = 18.sp)
 
                             }
