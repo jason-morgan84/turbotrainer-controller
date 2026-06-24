@@ -47,10 +47,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -68,11 +72,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
                 var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
                 var isConnected by remember { mutableStateOf(false) }
 
+                // region colour definitions
                 val colourBackground = Color(0xfff5f9f8)
                 val colourPlus1 = Color(0xff715fff)
                 val colourPlus5 = Color(0xff835fff)
@@ -161,22 +164,18 @@ class MainActivity : ComponentActivity() {
                     label = "Alpha"
                 )
 
-                val permissions = remember {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        arrayOf(
-                            Manifest.permission.BLUETOOTH_SCAN,
-                            Manifest.permission.BLUETOOTH_CONNECT,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        )
-                    } else {
-                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                    }
-                }
+                // endregion colour definitions
 
+
+                // region send and receive bluetooth data
                 val gattCallback = remember {
                     object : BluetoothGattCallback() {
                         @SuppressLint("MissingPermission")
-                        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                        override fun onConnectionStateChange(
+                            gatt: BluetoothGatt,
+                            status: Int,
+                            newState: Int
+                        ) {
                             if (newState == BluetoothProfile.STATE_CONNECTED) {
                                 Log.i("BLE", "Connected to GATT server.")
                                 isConnected = true
@@ -192,7 +191,10 @@ class MainActivity : ComponentActivity() {
                         }
 
                         @SuppressLint("MissingPermission")
-                        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                        override fun onServicesDiscovered(
+                            gatt: BluetoothGatt,
+                            status: Int
+                        ) {
                             if (status == BluetoothGatt.GATT_SUCCESS) {
                                 Log.i("BLE", "Services discovered")
                                 val ftmsService = gatt.getService(FTMS_SERVICE_UUID)
@@ -269,6 +271,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        @Deprecated("Deprecated in Java")
                         @Suppress("DEPRECATION")
                         @SuppressLint("MissingPermission")
                         override fun onCharacteristicRead(
@@ -319,6 +322,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        @Deprecated("Deprecated in Java")
                         @Suppress("DEPRECATION")
                         override fun onCharacteristicChanged(
                             gatt: BluetoothGatt,
@@ -446,6 +450,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // endregion send and receive bluetooth data
+
+                // region bluetooth scanning logic
+
                 val scanCallback = remember {
                     object : ScanCallback() {
                         @SuppressLint("MissingPermission")
@@ -512,9 +520,50 @@ class MainActivity : ComponentActivity() {
                     bluetoothAdapter?.bluetoothLeScanner?.stopScan(scanCallback)
                 }
 
-                //Permission checking logic - if required location permissions aren't granted
-                //when connect button is clicked, showLocationRationale is set to true and dialogues
-                //below are shown.
+                if (showBleDialog) {
+                    BleDeviceDialog(
+                        devices = discoveredDevices,
+                        isScanning = isScanning,
+                        onDismiss = {
+                            stopScan()
+                            showBleDialog = false
+                        },
+                        onScanToggle = {
+                            if (isScanning) stopScan() else startScan()
+                        },
+                        onDeviceSelected = { device ->
+                            @SuppressLint("MissingPermission")
+                            fun connectToDevice(device: BluetoothDevice) {
+                                bluetoothGatt?.disconnect()
+                                bluetoothGatt?.close()
+                                bluetoothGatt = device.connectGatt(context, false, gattCallback)
+                            }
+                            stopScan()
+                            showBleDialog = false
+                            Log.d("BLE", "Selected device: ${device.name ?: device.address}")
+                            connectToDevice(device)
+                        }
+                    )
+                }
+
+                // endregion bluetooth scanning logic
+
+                // region permission checking logic
+
+                // if required location permissions aren't granted when connect button is clicked,
+                // showLocationRationale is set to true and dialogues below are shown.
+
+                val permissions = remember {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        arrayOf(
+                            Manifest.permission.BLUETOOTH_SCAN,
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        )
+                    } else {
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+                    }
+                }
 
                 val permissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
@@ -563,32 +612,7 @@ class MainActivity : ComponentActivity() {
 
                     )
                 }
-
-                if (showBleDialog) {
-                    BleDeviceDialog(
-                        devices = discoveredDevices,
-                        isScanning = isScanning,
-                        onDismiss = {
-                            stopScan()
-                            showBleDialog = false
-                        },
-                        onScanToggle = {
-                            if (isScanning) stopScan() else startScan()
-                        },
-                        onDeviceSelected = { device ->
-                            @SuppressLint("MissingPermission")
-                            fun connectToDevice(device: BluetoothDevice) {
-                                bluetoothGatt?.disconnect()
-                                bluetoothGatt?.close()
-                                bluetoothGatt = device.connectGatt(context, false, gattCallback)
-                            }
-                            stopScan()
-                            showBleDialog = false
-                            Log.d("BLE", "Selected device: ${device.name ?: device.address}")
-                            connectToDevice(device)
-                        }
-                    )
-                }
+                // endregion permission checking logic
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -600,45 +624,67 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                     ) {
 
-                        Column(
+                        Box(
                             modifier = Modifier
+                                .fillMaxWidth()
                                 .align(Alignment.TopCenter)
-                                .padding(top = 16.dp)
-                                .border(
-                                    width = 8.dp,
-                                    color = colourPlus10,
-                                    shape = RoundedCornerShape(24.dp)
-                                )
-                                .background(
-                                    color = colourBackground,
-                                    shape = RoundedCornerShape(24.dp)
-                                ),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        )
-                        {
-                            Row(
+                        ) {
+                            Column(
                                 modifier = Modifier
-                                    .padding(top = 12.dp)
-                                    .fillMaxWidth(0.6f),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Label(value = actualPower.toString().plus(" W"), fontSize = 32.sp)
-                                Label(value = actualCadence.toString().plus(" rpm"),fontSize = 32.sp)
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 16.dp)
+                                    .border(
+                                        width = 8.dp,
+                                        color = colourPlus10,
+                                        shape = RoundedCornerShape(24.dp)
+                                    )
+                                    .background(
+                                        color = colourBackground,
+                                        shape = RoundedCornerShape(24.dp)
+                                    ),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            )
+                            {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(top = 12.dp)
+                                        .fillMaxWidth(0.6f),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Label(value = actualPower.toString().plus(" W"), fontSize = 32.sp)
+                                    Label(value = actualCadence.toString().plus(" rpm"), fontSize = 32.sp)
 
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .padding(bottom = 12.dp, top = 4.dp)
+                                        .fillMaxWidth(0.6f),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
+                                    Label(
+                                        value = (round(actualDistance / 10) / 100).toString().plus(" km"),
+                                        fontSize = 18.sp
+                                    )
+                                    Label(value = actualEnergy.toString().plus(" kcal"), fontSize = 18.sp)
+
+                                }
                             }
-                            Row(
-                                modifier = Modifier
-                                    .padding(bottom = 12.dp,top = 4.dp)
-                                    .fillMaxWidth(0.6f),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
-                                Label(value = (round(actualDistance/10)/100).toString().plus(" km"), fontSize = 18.sp)
-                                Label(value = actualEnergy.toString().plus(" kcal"),fontSize = 18.sp)
 
+                            IconButton(
+                                onClick = { /* TODO: Settings */ },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 4.dp, end = 16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = colourPlus10
+                                )
                             }
                         }
 
@@ -718,32 +764,56 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        MyButton(
-                            onClick = {
-                                if (isConnected) {
-                                    disconnectDevice()
-                                } else {
-                                    // 1: Check permissions for location services
-                                    val allGranted = permissions.all {
-                                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                                    }
-                                    if (allGranted) {
 
-                                        startScan()
-                                    } else {
-                                        showLocationRationale = true
-                                    }
-                                }
-                            },
-                            label = if (isConnected) "Disconnect" else "Connect",
-                            backgroundColor = Color(red = 200, green = 200, blue = 200),
-                            textColor = Color.Black,
-                            width = 150.dp,
-                            roundCorners = 12.dp,
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 32.dp)
-                        )
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            MyButton(
+                                onClick = { /* placeholder a */ },
+                                label = "History",
+                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                textColor = Color.Black,
+                                width = 120.dp,
+                                roundCorners = 12.dp
+                            )
+
+                            MyButton(
+                                onClick = {
+                                    if (isConnected) {
+                                        disconnectDevice()
+                                    } else {
+                                        // 1: Check permissions for location services
+                                        val allGranted = permissions.all {
+                                            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                                        }
+                                        if (allGranted) {
+                                            startScan()
+                                        } else {
+                                            showLocationRationale = true
+                                        }
+                                    }
+                                },
+                                label = if (isConnected) "Disconnect" else "Connect",
+                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                textColor = Color.Black,
+                                width = 120.dp,
+                                roundCorners = 12.dp
+                            )
+
+                            MyButton(
+                                onClick = { /* placeholder b */ },
+                                label = "Training",
+                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                textColor = Color.Black,
+                                width = 120.dp,
+                                roundCorners = 12.dp
+                            )
+                        }
                     }
                 }
             }
