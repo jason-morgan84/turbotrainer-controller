@@ -46,8 +46,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -71,6 +73,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -132,6 +135,7 @@ class MainActivity : ComponentActivity() {
                 val bluetoothAdapter = remember { bluetoothManager.adapter }
                 var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
                 var isConnected by remember { mutableStateOf(false) }
+                var isPaused by remember { mutableStateOf(false) }
 
                 // region colour definitions
                 val colourBackground = Color(0xfff5f9f8)
@@ -142,6 +146,7 @@ class MainActivity : ComponentActivity() {
                 val colourMinus1 = Color(0xff7777e7)
                 val colourMinus5 = Color(0xff8787d7)
                 val colourMinus10 = Color(0xff9797c7)
+                val colourButtons = Color(red = 200, green = 200, blue = 200)
 
                 val gradientSteps = arrayOf(0,50,100)
                 val gradientColours = arrayOf(colourMinus10, colourMiddle, colourPlus10)
@@ -370,7 +375,7 @@ class MainActivity : ComponentActivity() {
                                     if ((flags and 0x40) != 0 && data.size >= offset + 2) {
                                         val rawPower = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
                                         actualPower = rawPower
-                                        offset += 2
+                                        //offset += 2
                                     }
 
 
@@ -718,6 +723,9 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .padding(vertical = 5.dp)
                                     .size(200.dp)
+                                    .clip(CircleShape)
+                                    .clickable
+                                    { if(isConnected) { isPaused = !isPaused } }
                                     .drawBehind {
 
                                         val minRadius = 175.toFloat()
@@ -739,6 +747,21 @@ class MainActivity : ComponentActivity() {
                                     value = resistance.toString().plus("%"),
                                     fontSize = 48.sp
                                 )
+                                if (isPaused) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(colourBackground.copy(alpha = 0.7f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Pause,
+                                            contentDescription = "Paused",
+                                            modifier = Modifier.size(120.dp),
+                                            tint = colourButtons
+                                        )
+                                    }
+                                }
                             }
 
                             MyButton(
@@ -774,9 +797,9 @@ class MainActivity : ComponentActivity() {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             MyButton(
-                                onClick = { /* placeholder a */ },
+                                onClick = { isConnected = true },
                                 label = "History",
-                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                backgroundColor = colourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
@@ -798,8 +821,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 },
-                                label = if (isConnected) "Disconnect" else "Connect",
-                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                label = if (isConnected) "Stop" else "Start",
+                                backgroundColor = colourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
@@ -808,7 +831,7 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { /* placeholder b */ },
                                 label = "Training",
-                                backgroundColor = Color(red = 200, green = 200, blue = 200),
+                                backgroundColor = colourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
