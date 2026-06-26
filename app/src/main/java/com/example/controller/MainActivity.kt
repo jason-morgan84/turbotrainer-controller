@@ -13,6 +13,7 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanSettings
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -84,6 +85,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.controller.ui.theme.ControllerTheme
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import kotlin.math.round
 
 
@@ -110,6 +113,8 @@ var currentTime by mutableLongStateOf(0)
 var lastTime by mutableLongStateOf(0)
 
 
+val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+var startdatetime = LocalDateTime.now().format(formatter)
 val maxAlpha = 1.0f
 val FTMS_SERVICE_UUID: UUID = UUID.fromString("00001826-0000-1000-8000-00805f9b34fb")
 val SUPPORTED_RESISTANCE_LEVEL_RANGE_UUID: UUID = UUID.fromString("00002ad6-0000-1000-8000-00805f9b34fb")
@@ -117,6 +122,11 @@ val FTMS_CONTROL_POINT_UUID: UUID = UUID.fromString("00002ad9-0000-1000-8000-008
 val RESISTANCE_LEVEL_UUID: UUID = UUID.fromString("00002ad1-0000-1000-8000-00805f9b34fb")
 val INDOOR_BIKE_DATA_UUID: UUID = UUID.fromString("00002ad2-0000-1000-8000-00805f9b34fb")
 val CCC_DESCRIPTOR_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+
+class telemetry(val Time: Long, val Cadence: Int, val Power: Int, val Resistance: Int)
+
+var RawTelemetryList = mutableListOf<telemetry>()
+var ProcessedTelemetryList = mutableListOf<telemetry>()
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,7 +180,6 @@ class MainActivity : ComponentActivity() {
                 )
 
                 // endregion colour definitions
-
 
                 // region send and receive bluetooth data
                 val gattCallback = remember {
@@ -447,6 +456,8 @@ class MainActivity : ComponentActivity() {
                                 averageSpeed = x1
                                 Log.d("Stats","Average Speed: $x1")
                                 actualDistance = averageSpeed*(totalTime/1000)
+                                if (isConnected and !isPaused){
+                                    RawTelemetryList.add(telemetry(totalTime, actualCadence, actualPower, actualResistance))}
 
                             }
 
@@ -809,6 +820,7 @@ class MainActivity : ComponentActivity() {
                                 onClick = {
                                     if (isConnected) {
                                         disconnectDevice()
+                                        processTelemetry(context)
                                     } else {
                                         // 1: Check permissions for location services
                                         val allGranted = permissions.all {
@@ -816,6 +828,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         if (allGranted) {
                                             startScan()
+                                            startdatetime = LocalDateTime.now().format(formatter)
                                         } else {
                                             showLocationRationale = true
                                         }
@@ -852,6 +865,49 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
     
     if (gatt != null) {
         sendResistanceToMachine(gatt)
+    }
+}
+
+fun processTelemetry(context: Context)
+{
+    if (RawTelemetryList.isEmpty()) return
+
+    ProcessedTelemetryList.add(RawTelemetryList[0])
+    var desiredtime = 1000
+    for (i in 1 until RawTelemetryList.size)
+    {
+        while (RawTelemetryList[i].Time > desiredtime)
+        {
+            val timegap = RawTelemetryList[i].Time - RawTelemetryList[i-1].Time
+            val timeratio = (desiredtime - RawTelemetryList[i-1].Time).toDouble() / timegap
+            val power = timeratio * (RawTelemetryList[i].Power - RawTelemetryList[i-1].Power) + RawTelemetryList[i-1].Power
+            val cadence = timeratio * (RawTelemetryList[i].Cadence - RawTelemetryList[i-1].Cadence) + RawTelemetryList[i-1].Cadence
+            val resistance = timeratio * (RawTelemetryList[i].Resistance - RawTelemetryList[i-1].Resistance) + RawTelemetryList[i-1].Resistance
+            ProcessedTelemetryList.add(telemetry(desiredtime.toLong(), cadence.toInt(), power.toInt(), resistance.toInt()))
+            desiredtime += 1000
+        }
+    }
+    saveSessionToFile(context)
+}
+
+fun saveSessionToFile(context: Context) {
+
+    val fileName = "workout_history.csv"
+    val file = java.io.File(context.filesDir, fileName)
+    
+    try {
+        val isNewFile = !file.exists()
+        java.io.FileWriter(file, true).use { writer ->
+            if (isNewFile) {
+                writer.append("SessionStartTime,TimeMs,Cadence,Power,Resistance\n")
+            }
+            ProcessedTelemetryList.forEach { 
+                writer.append("$startdatetime,${it.Time},${it.Cadence},${it.Power},${it.Resistance}\n")
+            }
+        }
+        Log.i("History", "Session saved to ${file.absolutePath}")
+    } catch (e: Exception) {
+        Log.e("History", "Error saving session", e)
     }
 }
 
