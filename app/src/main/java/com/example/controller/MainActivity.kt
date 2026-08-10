@@ -14,6 +14,7 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -84,7 +85,18 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.controller.ui.Label
+import com.example.controller.ui.MyButton
 import com.example.controller.ui.theme.ControllerTheme
+import com.example.controller.ui.theme.ColourBackground
+import com.example.controller.ui.theme.ColourPlus1
+import com.example.controller.ui.theme.ColourPlus5
+import com.example.controller.ui.theme.ColourPlus10
+import com.example.controller.ui.theme.ColourMiddle
+import com.example.controller.ui.theme.ColourMinus1
+import com.example.controller.ui.theme.ColourMinus5
+import com.example.controller.ui.theme.ColourMinus10
+import com.example.controller.ui.theme.ColourButtons
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.round
@@ -147,19 +159,8 @@ class MainActivity : ComponentActivity() {
                 var isConnected by remember { mutableStateOf(false) }
                 var isPaused by remember { mutableStateOf(false) }
 
-                // region colour definitions
-                val colourBackground = Color(0xfff5f9f8)
-                val colourPlus1 = Color(0xff715fff)
-                val colourPlus5 = Color(0xff835fff)
-                val colourPlus10 = Color(0xff965fff)
-                val colourMiddle = Color(0xff5f5fff)
-                val colourMinus1 = Color(0xff7777e7)
-                val colourMinus5 = Color(0xff8787d7)
-                val colourMinus10 = Color(0xff9797c7)
-                val colourButtons = Color(red = 200, green = 200, blue = 200)
-
                 val gradientSteps = arrayOf(0,50,100)
-                val gradientColours = arrayOf(colourMinus10, colourMiddle, colourPlus10)
+                val gradientColours = arrayOf(ColourMinus10, ColourMiddle, ColourPlus10)
 
                 val gradient = remember(gradientColours) {
                     createGradient(gradientSteps, gradientColours)
@@ -178,8 +179,6 @@ class MainActivity : ComponentActivity() {
                     ),
                     label = "Alpha"
                 )
-
-                // endregion colour definitions
 
                 // region send and receive bluetooth data
                 val gattCallback = remember {
@@ -632,7 +631,7 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = colourBackground
+                    containerColor = ColourBackground
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -651,11 +650,11 @@ class MainActivity : ComponentActivity() {
                                     .padding(top = 16.dp)
                                     .border(
                                         width = 8.dp,
-                                        color = colourPlus10,
+                                        color = ColourPlus10,
                                         shape = RoundedCornerShape(24.dp)
                                     )
                                     .background(
-                                        color = colourBackground,
+                                        color = ColourBackground,
                                         shape = RoundedCornerShape(24.dp)
                                     ),
                                 verticalArrangement = Arrangement.Center,
@@ -699,7 +698,7 @@ class MainActivity : ComponentActivity() {
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Settings",
-                                    tint = colourPlus10
+                                    tint = ColourPlus10
                                 )
                             }
                         }
@@ -712,21 +711,21 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { updateResistance(10, bluetoothGatt)},
                                 label = "+10",
-                                backgroundColor = colourPlus10,
+                                backgroundColor = ColourPlus10,
                                 width = 150.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(5, bluetoothGatt)},
                                 label = "+5",
-                                backgroundColor = colourPlus5,
+                                backgroundColor = ColourPlus5,
                                 width = 125.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(1, bluetoothGatt)},
                                 label = "+1",
-                                backgroundColor = colourPlus1,
+                                backgroundColor = ColourPlus1,
                                 width = 100.dp,
                                 roundCorners = 24.dp
                             )
@@ -762,14 +761,14 @@ class MainActivity : ComponentActivity() {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .background(colourBackground.copy(alpha = 0.7f)),
+                                            .background(ColourBackground.copy(alpha = 0.7f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Pause,
                                             contentDescription = "Paused",
                                             modifier = Modifier.size(120.dp),
-                                            tint = colourButtons
+                                            tint = ColourButtons
                                         )
                                     }
                                 }
@@ -778,21 +777,21 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { updateResistance(-1, bluetoothGatt)},
                                 label = "-1",
-                                backgroundColor = colourMinus1,
+                                backgroundColor = ColourMinus1,
                                 width = 100.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-5, bluetoothGatt)},
                                 label = "-5",
-                                backgroundColor = colourMinus5,
+                                backgroundColor = ColourMinus5,
                                 width = 125.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-10, bluetoothGatt)},
                                 label = "-10",
-                                backgroundColor = colourMinus10,
+                                backgroundColor = ColourMinus10,
                                 width = 150.dp,
                                 roundCorners = 24.dp
                             )
@@ -810,7 +809,7 @@ class MainActivity : ComponentActivity() {
                             MyButton(
                                 onClick = { isConnected = true },
                                 label = "History",
-                                backgroundColor = colourButtons,
+                                backgroundColor = ColourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
@@ -835,16 +834,18 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 label = if (isConnected) "Stop" else "Start",
-                                backgroundColor = colourButtons,
+                                backgroundColor = ColourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
                             )
 
                             MyButton(
-                                onClick = { /* placeholder b */ },
+                                onClick = { 
+                                    context.startActivity(Intent(context, TrainingActivity::class.java))
+                                },
                                 label = "Training",
-                                backgroundColor = colourButtons,
+                                backgroundColor = ColourButtons,
                                 textColor = Color.Black,
                                 width = 120.dp,
                                 roundCorners = 12.dp
@@ -870,6 +871,8 @@ fun updateResistance(value: Int, gatt: BluetoothGatt? = null) {
 
 fun processTelemetry(context: Context)
 {
+    // todo don't use this, remove from Stop button
+    // only save time and date, duration, average resistance, average power, average cadence, total energy used and training plan
     if (RawTelemetryList.isEmpty()) return
 
     ProcessedTelemetryList.add(RawTelemetryList[0])
@@ -1021,38 +1024,3 @@ fun BleDeviceDialog(
     )
 }
 
-@Composable
-fun Label(
-    value: String,
-    modifier: Modifier = Modifier,
-    fontSize: TextUnit = TextUnit.Unspecified
-) {
-    Text(
-        text = value,
-        modifier = modifier,
-        fontSize = fontSize
-    )
-}
-
-@Composable
-fun MyButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "Click Me",
-    roundCorners: Dp = 4.dp,
-    width: Dp? = null,
-    backgroundColor: Color? = null,
-    textColor: Color? = null
-) {
-    Button(
-        onClick = onClick,
-        modifier = if (width != null) modifier.width(width) else modifier,
-        shape = RoundedCornerShape(roundCorners),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = backgroundColor ?: ButtonDefaults.buttonColors().containerColor,
-            contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
-        )
-    ) {
-        Text(text = label)
-    }
-}
