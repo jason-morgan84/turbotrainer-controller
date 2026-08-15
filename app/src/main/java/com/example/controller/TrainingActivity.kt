@@ -1,10 +1,12 @@
 package com.example.controller
 
+import android.graphics.Color.argb
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,12 +60,19 @@ import com.example.controller.ui.theme.ColourMinus10
 import kotlin.collections.emptyList
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.toSize
-
 import androidx.compose.material3.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.text.font.FontWeight
+import androidx.core.graphics.ColorUtils
 
 
 val SegmentType = listOf("Warm Up", "Interval", "Rest", "Repeat", "Cool Down")
+val coloursMap = mapOf(
+    "Warm Up" to ColourMiddle,
+    "Cool Down" to ColourMiddle,
+    "Interval" to ColourPlus10,
+    "Rest" to ColourMinus10,
+    "Repeat" to ColourButtons)
 
 class Segment(val name: String, val ramp: Boolean, val start: Int, val end: Int = start)
 class TrainingActivity : ComponentActivity() {
@@ -180,12 +189,7 @@ fun TrainingSegment(
     start: Int,
     end: Int = start)
 {
-    val coloursMap = mapOf(
-        "Warm Up" to ColourMiddle,
-        "Cool Down" to ColourMiddle,
-        "Interval" to ColourPlus10,
-        "Rest" to ColourMinus10,
-        "Repeat" to ColourButtons)
+
 
     Box(
         modifier = Modifier.fillMaxWidth(fraction = 0.6f)
@@ -214,24 +218,17 @@ fun DialogUpdateSegment(
     onConfirmation: () -> Unit,
     newSegment: Boolean
 ) {
-    var mExpanded by remember { mutableStateOf(false) }
-    var mSelectedText by remember { mutableStateOf("") }
-    var mTextFieldSize by remember { mutableStateOf(Size.Zero)}
-    val icon = if (mExpanded)
-        Icons.Filled.KeyboardArrowUp
-    else
-        Icons.Filled.KeyboardArrowDown
-    var currentRamp by remember { mutableStateOf(false) }
 
+    var currentRamp by remember { mutableStateOf(false) }
     val currentStartResistance = rememberTextFieldState()
     val currentEndResistance = rememberTextFieldState()
+    var currentSegmentType by remember { mutableStateOf("Interval") }
 
     fun updateSegments() {
         if (newSegment) {
-            Log.d("DEBUG",mSelectedText)
             segmentList.add(
                 Segment(
-                    name = mSelectedText,
+                    name = currentSegmentType,
 
                     ramp = currentRamp,
                     start = currentStartResistance.text.toString().toInt(),
@@ -258,61 +255,38 @@ fun DialogUpdateSegment(
             shape = RoundedCornerShape(16.dp),
         ) {
             Column(
-                //modifier = Modifier
-                    //.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 Text(
                     text = if (newSegment) "New Segment" else "Edit Segment",
                     fontSize = 20.sp,
+                    color = Color.Black,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.padding(16.dp),
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                )
+                for (item in coloursMap)
                 {
-                    Label("Type:")
-                    OutlinedTextField(
-                        value = mSelectedText,
-                        onValueChange = { mSelectedText = it },
-                        modifier = Modifier
-                            .fillMaxWidth(0.8f)
-                            .padding(4.dp)
-                            .onGloballyPositioned { coordinates ->
-                                // This value is used to assign to
-                                // the DropDown the same width
-                                mTextFieldSize = coordinates.size.toSize()
-                            },
-                        trailingIcon = {
-                            Icon(
-                                icon, "contentDescription",
-                                Modifier.clickable { mExpanded = !mExpanded })
-                        }
+                    Card(modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .padding(horizontal = 48.dp),
+                        border = if (item.key == currentSegmentType) BorderStroke(2.dp, Color.DarkGray) else BorderStroke(0.dp, Color.Transparent),
+                        colors = CardDefaults.cardColors(containerColor = if (item.key == currentSegmentType) item.value else item.value.copy(alpha=0.4f)),
+                        shape = RoundedCornerShape(8.dp),
                     )
 
-                    DropdownMenu(
-                        expanded = mExpanded,
-                        onDismissRequest = { mExpanded = false },
-                        modifier = Modifier
-                            .width(with(receiver = LocalDensity.current) { mTextFieldSize.width.toDp() })
-
-                    ) {
-
-                        SegmentType.forEach { label ->
-                            DropdownMenuItem(
-                                text = { Text(text = label) },
-                                onClick = {
-                                    mSelectedText = label
-                                    mExpanded = false
-                                }
-                            )
+                    {
+                        TextButton(modifier=Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 0.dp),
+                            onClick = {currentSegmentType = item.key})
+                        {
+                            Text(text = item.key,
+                                color = Color.Black,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,)
                         }
                     }
                 }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -320,7 +294,7 @@ fun DialogUpdateSegment(
                     verticalAlignment = Alignment.CenterVertically,
                     )
                 {
-                    Label("Ramp:")
+                    Text("Ramp:",color = Color.Black,)
                     Switch( modifier = Modifier
                         .padding(4.dp),
                         checked = currentRamp,
@@ -328,6 +302,7 @@ fun DialogUpdateSegment(
                     )
 
                 }
+                //TODO update ramp switch and resistance text box to black, reduce size of text box
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -336,13 +311,13 @@ fun DialogUpdateSegment(
                     verticalAlignment = Alignment.CenterVertically,
                 )
                 {
-                    Label("Resistance: ")
+                    Text("Resistance: ",color = Color.Black,)
                     OutlinedTextField(
                         state = currentStartResistance,
                         lineLimits = TextFieldLineLimits.SingleLine,
                         modifier = Modifier
                         .width(60.dp)
-                        .padding(4.dp))
+                        .padding(horizontal = 4.dp))
                         //TODO: ADD TESTING VALUE CHANGE AND UPDATING OF SEGMENT LIST
 
 
