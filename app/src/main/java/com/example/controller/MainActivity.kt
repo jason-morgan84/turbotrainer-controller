@@ -712,21 +712,21 @@ class MainActivity : ComponentActivity() {
                                 onClick = { updateResistance(10, bluetoothGatt)},
                                 label = "+10",
                                 backgroundColor = ColourPlus10,
-                                width = 150.dp,
+                                width = 190.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(5, bluetoothGatt)},
                                 label = "+5",
                                 backgroundColor = ColourPlus5,
-                                width = 125.dp,
+                                width = 170.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(1, bluetoothGatt)},
                                 label = "+1",
                                 backgroundColor = ColourPlus1,
-                                width = 100.dp,
+                                width = 150.dp,
                                 roundCorners = 24.dp
                             )
                             Box(
@@ -778,21 +778,21 @@ class MainActivity : ComponentActivity() {
                                 onClick = { updateResistance(-1, bluetoothGatt)},
                                 label = "-1",
                                 backgroundColor = ColourMinus1,
-                                width = 100.dp,
+                                width = 150.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-5, bluetoothGatt)},
                                 label = "-5",
                                 backgroundColor = ColourMinus5,
-                                width = 125.dp,
+                                width = 170.dp,
                                 roundCorners = 24.dp
                             )
                             MyButton(
                                 onClick = { updateResistance(-10, bluetoothGatt)},
                                 label = "-10",
                                 backgroundColor = ColourMinus10,
-                                width = 150.dp,
+                                width = 190.dp,
                                 roundCorners = 24.dp
                             )
                         }

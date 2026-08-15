@@ -1,6 +1,5 @@
 package com.example.controller
 
-import android.graphics.Color.argb
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -8,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,11 +21,9 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
+
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -36,7 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.controller.ui.Label
+
 import com.example.controller.ui.MyButton
 import com.example.controller.ui.theme.ControllerTheme
 import com.example.controller.ui.theme.ColourBackground
@@ -50,20 +46,15 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.clip
+
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
+
 import androidx.compose.ui.window.Dialog
 import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourMinus10
-import kotlin.collections.emptyList
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.unit.toSize
+
 import androidx.compose.material3.*
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.text.font.FontWeight
-import androidx.core.graphics.ColorUtils
+
 
 
 val SegmentType = listOf("Warm Up", "Interval", "Rest", "Repeat", "Cool Down")
@@ -90,11 +81,6 @@ class TrainingActivity : ComponentActivity() {
                         newSegment = true,
                         segmentList = trainingSegments
                     )
-                }
-
-                fun updateTrainingSegments()
-                {
-                    //trainingSegments.add("Segment " + (trainingSegments.size + 2).toString())
                 }
 
                 Scaffold(
@@ -260,7 +246,7 @@ fun DialogUpdateSegment(
                 Text(
                     text = if (newSegment) "New Segment" else "Edit Segment",
                     fontSize = 20.sp,
-                    color = Color.Black,
+                    //color = Color.Black,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.padding(16.dp),
                 )
@@ -281,7 +267,7 @@ fun DialogUpdateSegment(
                             onClick = {currentSegmentType = item.key})
                         {
                             Text(text = item.key,
-                                color = Color.Black,
+                                color = if (item.key == currentSegmentType) Color.Black else Color.DarkGray,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,)
                         }
                     }
@@ -294,47 +280,45 @@ fun DialogUpdateSegment(
                     verticalAlignment = Alignment.CenterVertically,
                     )
                 {
-                    Text("Ramp:",color = Color.Black,)
+                    Text("Ramp:")
                     Switch( modifier = Modifier
                         .padding(4.dp),
                         checked = currentRamp,
-                        onCheckedChange = {currentRamp = !currentRamp},
+                        onCheckedChange = {currentRamp = !currentRamp}
                     )
 
                 }
-                //TODO update ramp switch and resistance text box to black, reduce size of text box
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
 
-                    verticalAlignment = Alignment.CenterVertically,
-                )
-                {
-                    Text("Resistance: ",color = Color.Black,)
+
+
+                    //Text("Resistance: ",color = Color.Black,)
                     OutlinedTextField(
                         state = currentStartResistance,
                         lineLimits = TextFieldLineLimits.SingleLine,
                         modifier = Modifier
-                        .width(60.dp)
-                        .padding(horizontal = 4.dp))
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        label = {if (currentRamp) Text("Start Resistance") else Text("Resistance") },
+                        suffix = { Text ("%") })
+
                         //TODO: ADD TESTING VALUE CHANGE AND UPDATING OF SEGMENT LIST
 
 
                     if (currentRamp) {
-                        Text("% - ")
                         OutlinedTextField(
                             state = currentEndResistance,
                             lineLimits = TextFieldLineLimits.SingleLine,
                             modifier = Modifier
-                                .width(60.dp)
-                                .padding(4.dp))
-                        Text("%")
-                    }
-                    else
-                        Text("%")
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            label = {Text ("End Resistance") },
+                            suffix = { Text ("%") })
 
-                }
+                    }
+
+
+
+
 
                 Row(
                     modifier = Modifier
