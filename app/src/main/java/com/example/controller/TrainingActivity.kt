@@ -1,6 +1,7 @@
 package com.example.controller
-
+import androidx.compose.ui.focus.onFocusChanged
 import android.os.Bundle
+import android.text.TextUtils
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,7 +20,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.OutputTransformation
 import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.delete
+import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
 
 import androidx.compose.material3.Card
@@ -54,10 +60,28 @@ import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourMinus10
 
 import androidx.compose.material3.*
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.input.KeyboardType
+
+import androidx.core.graphics.ColorUtils.colorToHSL
+import kotlin.text.append
+import kotlin.text.filter
+import kotlin.text.takeLast
+
+fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
+    val hsl = FloatArray(3)
+    colorToHSL(colour.toArgb(), hsl)
+
+    val newHue = (hsl[0] + hue).coerceIn(0.0f, 360.0f)
+    val newSaturation = (hsl[1] + saturation).coerceIn(0.0f, 1.0f)
+    val newLightness = (hsl[2] + lightness).coerceIn(0.0f, 1.0f)
+
+    return Color.hsl(newHue,newSaturation, newLightness)
+}
 
 
-
-val SegmentType = listOf("Warm Up", "Interval", "Rest", "Repeat", "Cool Down")
+val SegmentType = listOf("Warm Up", "Cool Down", "Interval", "Rest")
 val coloursMap = mapOf(
     "Warm Up" to ColourMiddle,
     "Cool Down" to ColourMiddle,
@@ -178,7 +202,8 @@ fun TrainingSegment(
 
 
     Box(
-        modifier = Modifier.fillMaxWidth(fraction = 0.6f)
+        modifier = Modifier
+            .fillMaxWidth(fraction = 0.6f)
             .height(50.dp)
             .background(ColourBackground))
     {
@@ -208,7 +233,50 @@ fun DialogUpdateSegment(
     var currentRamp by remember { mutableStateOf(false) }
     val currentStartResistance = rememberTextFieldState()
     val currentEndResistance = rememberTextFieldState()
+    val currentTime = rememberTextFieldState()
     var currentSegmentType by remember { mutableStateOf("Interval") }
+
+    val timeInputTransformation = InputTransformation {
+        val digits = asCharSequence().filter { it.isDigit() }
+        //val result = if (digits.length > 4) digits.takeLast(4).toString() else digits.toString()
+        //replace(0, length, result)
+    }
+
+    val timeOutputTransformation = OutputTransformation {
+        // 1. Pad with leading zeros until we have 4 digits
+        while (length < 4) {
+            insert(0, "0")
+        }
+        Log.d("TIME",this.toString())
+
+        while (this.toString()[0] == '0' && length > 4) {
+                delete(0, 1)
+                Log.d("TIME",this.toString())
+
+        }
+        // 2. Insert "m " after the first two digits and "s" at the end
+        // Buffer is "MMSS" -> "MMm SSs"
+        insert(length - 2, "m ")
+        append("s")
+    }
+
+    fun checkTime(): CharSequence {
+        val stringTime = currentTime.text.toString().ifEmpty { "0000" }
+        var minutes = stringTime.substring(0, stringTime.length - 2)
+        var seconds = stringTime.substring(stringTime.length - 2,stringTime.length)
+        Log.d("TIME", "stringTime: $stringTime Minutes: $minutes Seconds: $seconds")
+        if (seconds.toInt() >= 60){
+            seconds = (seconds.toInt() - 60).toString()
+            minutes = (minutes.toInt() + 1).toString()
+        }
+        while (seconds.length < 2) {
+            seconds = "0$seconds"
+        }
+
+        Log.d("TIME", "New Minutes: $minutes New Seconds: $seconds Returns: ${minutes + seconds}")
+        return minutes + seconds
+
+    }
 
     fun updateSegments() {
         if (newSegment) {
@@ -250,28 +318,59 @@ fun DialogUpdateSegment(
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.padding(16.dp),
                 )
-                for (item in coloursMap)
+                for (item in SegmentType)
                 {
-                    Card(modifier = Modifier
-                        .padding(vertical = 4.dp)
-                        .padding(horizontal = 48.dp),
-                        border = if (item.key == currentSegmentType) BorderStroke(2.dp, Color.DarkGray) else BorderStroke(0.dp, Color.Transparent),
-                        colors = CardDefaults.cardColors(containerColor = if (item.key == currentSegmentType) item.value else item.value.copy(alpha=0.4f)),
-                        shape = RoundedCornerShape(8.dp),
+                    val colour = coloursMap[item] ?: ColourButtons
+                        ElevatedButton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 0.dp)
+                                .padding(horizontal = 48.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor =
+                                    if (item == currentSegmentType) adjustColour(
+                                        colour,
+                                        saturation = -0.6f,
+                                        lightness = 0.05f
+                                    ) else adjustColour(colour, lightness = 0.15f)
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = if (item == currentSegmentType) 0.dp else 6.dp),
+                            onClick = { currentSegmentType = item },
+
+                            )
+
+                        {
+                            Text(
+                                text = item,
+                                color = if (item == currentSegmentType) Color.Black else Color.DarkGray,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
+
+                }
+                OutlinedTextField(
+                    state = currentTime,
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    inputTransformation = timeInputTransformation,
+                    outputTransformation = timeOutputTransformation,
+                    onKeyboardAction = {
+                        val newText = checkTime().toString()
+                        currentTime.edit {replace(0, length, newText) }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .onFocusChanged { if (!it.isFocused) {
+                                // This code runs when focus is lost
+                                val newText = checkTime().toString()
+                                currentTime.edit { replace(0, length, newText) }
+                            }
+                        }
+                            ,
+                    label = { Text("Time") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
                     )
 
-                    {
-                        TextButton(modifier=Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 0.dp),
-                            onClick = {currentSegmentType = item.key})
-                        {
-                            Text(text = item.key,
-                                color = if (item.key == currentSegmentType) Color.Black else Color.DarkGray,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,)
-                        }
-                    }
-                }
 
                 Row(
                     modifier = Modifier
@@ -289,9 +388,6 @@ fun DialogUpdateSegment(
 
                 }
 
-
-
-                    //Text("Resistance: ",color = Color.Black,)
                     OutlinedTextField(
                         state = currentStartResistance,
                         lineLimits = TextFieldLineLimits.SingleLine,
@@ -299,6 +395,7 @@ fun DialogUpdateSegment(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
                         label = {if (currentRamp) Text("Start Resistance") else Text("Resistance") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         suffix = { Text ("%") })
 
                         //TODO: ADD TESTING VALUE CHANGE AND UPDATING OF SEGMENT LIST
@@ -312,6 +409,7 @@ fun DialogUpdateSegment(
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp),
                             label = {Text ("End Resistance") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                             suffix = { Text ("%") })
 
                     }
@@ -319,7 +417,7 @@ fun DialogUpdateSegment(
 
 
 
-
+//TODO Update to normal button styles
                 Row(
                     modifier = Modifier
                         .fillMaxWidth(),
