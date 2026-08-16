@@ -1,24 +1,26 @@
 package com.example.controller
 import androidx.compose.ui.focus.onFocusChanged
 import android.os.Bundle
-import android.text.TextUtils
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -27,13 +29,15 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.delete
 import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Delete
 
 import androidx.compose.material3.Card
 
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,7 +49,6 @@ import com.example.controller.ui.theme.ColourBackground
 import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourMiddle
 import com.example.controller.ui.theme.ColourPlus10
-import com.example.controller.ui.theme.ColourPlus5
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -56,18 +59,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.window.Dialog
-import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourMinus10
 
 import androidx.compose.material3.*
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.zIndex
 
 import androidx.core.graphics.ColorUtils.colorToHSL
-import kotlin.text.append
-import kotlin.text.filter
-import kotlin.text.takeLast
+
 
 fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
     val hsl = FloatArray(3)
@@ -88,22 +89,104 @@ val coloursMap = mapOf(
     "Interval" to ColourPlus10,
     "Rest" to ColourMinus10,
     "Repeat" to ColourButtons)
+var firstLoad = true
+class Segment(val name: String, val time: Array<Int>, val ramp: Boolean, val start: Int, val end: Int = start)
 
-class Segment(val name: String, val ramp: Boolean, val start: Int, val end: Int = start)
 class TrainingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                val trainingSegments = remember {mutableStateListOf<Segment>()}
+                val defaultTraining = remember {mutableStateListOf<Segment>()}
+               if (firstLoad){
+                    defaultTraining.addAll(arrayOf(
+                        Segment("Warm Up", arrayOf(3,0),true, 10, 30),
+                        Segment("Interval", arrayOf(5,0),false, 50),
+                        Segment("Cool Down", arrayOf(3,0),true, 30, 10)))
+                    firstLoad = false
+                }
+
+                //TODO update openTraining to whatever's chosen in previous screen
+                val openTraining = defaultTraining
+
+
+                fun deleteSegment(ID: Int)
+                {
+                    openTraining.removeAt(ID)
+                }
+                @Composable
+                fun createSegment(
+                    //backgroundColor: Color? = null,
+                    name: String,
+                    time: Array<Int>,
+                    ramp: Boolean,
+                    start: Int,
+                    end: Int = start,
+                    ID: Int)
+                {
+                    Box(
+                        modifier = Modifier
+                            .layoutId(ID.toString())
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .background(ColourBackground))
+                    {
+                        Card(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = if (name == "Repeat") 60.dp else 80.dp)
+                            .fillMaxHeight(),
+                            colors = CardDefaults.cardColors(adjustColour(coloursMap[name]?:ColourBackground, lightness = 0.1f)),
+                            shape = RoundedCornerShape(8.dp))
+                        {
+                            Row(modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically)
+                            {
+                                Text(
+                                    maxLines = 2,
+                                    text = if (ramp)
+                                        if (time[0] != 0)
+                                            "$name\n ${time[0]}m ${time[1]}s @ $start-$end%"
+                                        else
+                                            "$name\n ${time[1]}s @ $start-$end%"
+                                    else
+                                        if (time[0] != 0)
+                                            "$name\n ${time[0]}m ${time[1]}s @ $start%"
+                                        else
+                                            "$name\n ${time[1]}s @ $start%"
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Button(modifier = Modifier
+                                    .width(30.dp)
+                                    .padding(vertical = 4.dp)
+                                    .height(30.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = adjustColour(ColourButtons,lightness = -0.5f).copy(alpha=0.5f)),
+                                    contentPadding = PaddingValues(0.dp),
+                                    shape = CircleShape,
+                                    onClick = {deleteSegment(ID)})
+                                {
+                                    Icon(
+                                        modifier = Modifier.size(32.dp),
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete"
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+
                 var showDialog by remember { mutableStateOf(false) }
                 if (showDialog){
                     DialogUpdateSegment(
                         onDismissRequest = { showDialog = false },
                         onConfirmation = { showDialog = false },
                         newSegment = true,
-                        segmentList = trainingSegments
+                        segmentList = openTraining
                     )
                 }
 
@@ -122,7 +205,7 @@ class TrainingActivity : ComponentActivity() {
                         Column {
 
 
-                            Row(
+                            Box(
                                 modifier = Modifier
                                     .fillMaxHeight(0.9f)
                                     .fillMaxWidth()
@@ -134,23 +217,71 @@ class TrainingActivity : ComponentActivity() {
                                         .spacedBy(10.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally)
                                 {
-                                    for (item in trainingSegments)
+                                    for (item in openTraining.withIndex())
                                         {
-                                        TrainingSegment(
-                                            name = item.name,
-                                            ramp = item.ramp,
-                                            start = item.start,
-                                            end = item.end,
-                                            //backgroundColor = ColourPlus5
-                                        )
+                                        createSegment(
+                                            name = item.value.name,
+                                            time = item.value.time,
+                                            ramp = item.value.ramp,
+                                            start = item.value.start,
+                                            end = item.value.end,
+                                            ID = item.index)
                                     }
+
+                                }
+
+                                    Box(modifier = Modifier
+                                        .width(80.dp)
+                                        .height(200.dp)
+                                        .align(Alignment.BottomEnd)
+                                        .padding(horizontal = 8.dp)
+                                        //.background(color = ColourPlus10)
+                                        .zIndex(5f))
+                                    {
+                                        Column(modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight())
+                                        {
+                                            Button(modifier = Modifier
+                                                .width(50.dp)
+                                                .padding(vertical = 4.dp)
+                                                .height(50.dp),
+                                                shape = CircleShape,
+                                                onClick = {showDialog=true})
+                                            {
+                                                Text("+")
+                                            }
+                                            Button(modifier = Modifier
+                                                .width(50.dp)
+                                                .padding(vertical = 4.dp)
+                                                .height(50.dp),
+                                                shape = CircleShape,
+                                                onClick = {showDialog=true})
+                                            {
+                                                Text("-")
+                                            }
+                                            Button(modifier = Modifier
+                                                .width(50.dp)
+                                                .padding(vertical = 4.dp)
+                                                .height(50.dp),
+                                                contentPadding = PaddingValues(0.dp),
+                                                shape = CircleShape,
+                                                onClick = {showDialog=true})
+                                            {
+                                                Icon(
+                                                    modifier = Modifier.size(32.dp),
+                                                    imageVector = Icons.Default.Build,
+                                                    contentDescription = "Edit"
+                                                )
+                                            }
+
+                                        }
+
 
                                 }
                             }
                             Row(
-                                //verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    //.align(alignment = Alignment.BottomCenter)
                                     .padding(bottom = 32.dp)
                                     .background(color = ColourBackground)
                                     .fillMaxHeight(1f)
@@ -182,7 +313,9 @@ class TrainingActivity : ComponentActivity() {
 
                             }
                         }
+
                     }
+
 
 
                 }
@@ -191,36 +324,7 @@ class TrainingActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun TrainingSegment(
-    //backgroundColor: Color? = null,
-    name: String,
-    ramp: Boolean,
-    start: Int,
-    end: Int = start)
-{
 
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth(fraction = 0.6f)
-            .height(50.dp)
-            .background(ColourBackground))
-    {
-        Card(modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxHeight(),
-            colors = CardDefaults.cardColors(coloursMap[name] ?: ColourBackground),
-            shape = RoundedCornerShape(8.dp))
-        {
-            Text(
-                maxLines = 2,
-                modifier = Modifier.padding(start = 4.dp),
-                text = if (ramp) "$name\n xS from $start% to $end" else "$name:\nxS at $start%"
-            )
-        }
-    }
-}
 
 @Composable
 fun DialogUpdateSegment(
@@ -236,26 +340,23 @@ fun DialogUpdateSegment(
     val currentTime = rememberTextFieldState()
     var currentSegmentType by remember { mutableStateOf("Interval") }
 
+    for (item in segmentList) Log.d("SEGMENT", item.name)
+
     val timeInputTransformation = InputTransformation {
-        val digits = asCharSequence().filter { it.isDigit() }
-        //val result = if (digits.length > 4) digits.takeLast(4).toString() else digits.toString()
-        //replace(0, length, result)
+        //val digits = asCharSequence().filter { it.isDigit() }
     }
 
     val timeOutputTransformation = OutputTransformation {
-        // 1. Pad with leading zeros until we have 4 digits
+
         while (length < 4) {
             insert(0, "0")
         }
-        Log.d("TIME",this.toString())
 
         while (this.toString()[0] == '0' && length > 4) {
                 delete(0, 1)
-                Log.d("TIME",this.toString())
 
         }
-        // 2. Insert "m " after the first two digits and "s" at the end
-        // Buffer is "MMSS" -> "MMm SSs"
+
         insert(length - 2, "m ")
         append("s")
     }
@@ -264,16 +365,13 @@ fun DialogUpdateSegment(
         val stringTime = currentTime.text.toString().ifEmpty { "0000" }
         var minutes = stringTime.substring(0, stringTime.length - 2)
         var seconds = stringTime.substring(stringTime.length - 2,stringTime.length)
-        Log.d("TIME", "stringTime: $stringTime Minutes: $minutes Seconds: $seconds")
-        if (seconds.toInt() >= 60){
+               if (seconds.toInt() >= 60){
             seconds = (seconds.toInt() - 60).toString()
             minutes = (minutes.toInt() + 1).toString()
         }
         while (seconds.length < 2) {
             seconds = "0$seconds"
         }
-
-        Log.d("TIME", "New Minutes: $minutes New Seconds: $seconds Returns: ${minutes + seconds}")
         return minutes + seconds
 
     }
@@ -283,14 +381,20 @@ fun DialogUpdateSegment(
             segmentList.add(
                 Segment(
                     name = currentSegmentType,
-
+                    time = arrayOf(
+                        currentTime.text.toString().ifEmpty { "0000" }.substring(0, currentTime.text.toString().length - 2).toInt(),
+                        currentTime.text.toString().ifEmpty { "0000" }.substring(currentTime.text.toString().length - 2, currentTime.text.toString().length).toInt()),
                     ramp = currentRamp,
+
                     start = currentStartResistance.text.toString().toInt(),
                     end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
                     //TODO: ADD TYPE TESTING HERE
 
                 )
             )
+            for (item in segmentList)
+                Log.d("SEGMENT", item.name)
+
             onConfirmation()
         }
         else{
@@ -360,7 +464,8 @@ fun DialogUpdateSegment(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .onFocusChanged { if (!it.isFocused) {
+                        .onFocusChanged {
+                            if (!it.isFocused) {
                                 // This code runs when focus is lost
                                 val newText = checkTime().toString()
                                 currentTime.edit { replace(0, length, newText) }
@@ -414,28 +519,29 @@ fun DialogUpdateSegment(
 
                     }
 
-
-
-
-//TODO Update to normal button styles
                 Row(
                     modifier = Modifier
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                 ) {
-                    TextButton(
+                    MyButton(
                         onClick = { onDismissRequest() },
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
-                        Text("Back")
-                    }
-                    TextButton(
+                        label = "Back",
+                        backgroundColor = ColourButtons,
+                        textColor = Color.Black,
+                        width = 120.dp,
+                        roundCorners = 12.dp,
+                        modifier = Modifier.padding(all = 8.dp),
+                    )
+                    MyButton(
                         onClick = { updateSegments() },
-                        //onConfirmation()
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                    ) {
-                        Text("Add")
-                    }
+                        label = if (newSegment) "Add" else "Update",
+                        backgroundColor = ColourButtons,
+                        textColor = Color.Black,
+                        width = 120.dp,
+                        roundCorners = 12.dp,
+                        modifier = Modifier.padding(all = 8.dp),
+                    )
                 }
             }
         }
