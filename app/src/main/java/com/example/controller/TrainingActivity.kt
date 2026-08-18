@@ -92,24 +92,67 @@ val coloursMap = mapOf(
     "Rest" to ColourMinus10,
     "Repeat" to ColourButtons)
 var firstLoad = true
-class Segment(var name: String, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start)
+class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start)
 
+class TrainingPlan (val name: String, val segments: MutableList<Segment>, var maxID: Int = 0)
+{
+    fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start)
+    {
+        segments.add(Segment(name, maxID, time, ramp, start, end))
+        maxID++
+    }
+    fun removeSegmentWithIndex(index: Int)
+    {
+        segments.removeAt(index)
+    }
+    fun removeSegmentWithID (id: Int)
+    {
+        segments.removeAt(getIndexFromID(id))
+    }
+    fun getSegmentFromIndex(index: Int): Segment
+    {
+        return segments[index]
+    }
+    fun getSegmentFromID(id: Int): Segment {
+        for (n in segments.indices) {
+            if (segments[n].ID == id)
+                return segments[n]
+            else
+                return Segment("Error", id,arrayOf(0, 0), false, 0)
+        }
+        return Segment("Error", id,arrayOf(0, 0), false, 0)
+    }
+    fun getIndexFromID(id: Int): Int {
+        for (n in segments.indices) {
+            if (segments[n].ID == id)
+                return n
+            else
+                return -1
+        }
+        return Segment("Error", id,arrayOf(0, 0), false, 0).ID)
+    }
+
+
+
+    }
+}
 class TrainingActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                val defaultTraining = remember {mutableStateListOf<Segment>()}
+                //val defaultTraining = remember {mutableStateOf<TrainingPlan>}
+                val defaultTrainingPlan = TrainingPlan("Default", mutableListOf())
                if (firstLoad){
-                    defaultTraining.addAll(arrayOf(
-                        Segment("Warm Up", arrayOf(3,0),true, 10, 30),
-                        Segment("Interval", arrayOf(5,0),false, 50),
-                        Segment("Cool Down", arrayOf(3,0),true, 30, 10)))
+                   defaultTrainingPlan.addSegment("Warm Up", arrayOf(3,0),true, 10, 30)
+                   defaultTrainingPlan.addSegment("Interval", arrayOf(5,0),false, 50)
+                   defaultTrainingPlan.addSegment("Cool Down", arrayOf(3,0),true, 30, 10)
+
                     firstLoad = false
                 }
 
-                val openTraining = defaultTraining
+                val openTrainingPlan = defaultTrainingPlan
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var showDialog by remember { mutableStateOf(false) }
@@ -119,7 +162,7 @@ class TrainingActivity : ComponentActivity() {
                         onConfirmation = { showDialog = false },
                         editSegment = segmentEdit,
                         segment = segmentEditID,
-                        segmentList = openTraining
+                        segmentList = openTrainingPlan
                     )
                 }
 
@@ -127,34 +170,24 @@ class TrainingActivity : ComponentActivity() {
 
 
 
-                fun deleteSegment(ID: Int)
-                {
-                    openTraining.removeAt(ID)
-                }
                 @Composable
-                fun createSegment(
-                    //backgroundColor: Color? = null,
-                    name: String,
-                    time: Array<Int>,
-                    ramp: Boolean,
-                    start: Int,
-                    end: Int = start,
-                    ID: Int)
+                fun drawSegmentCard(id: Int)
+                //TODO ID or INDEX?
                 {
                     Box(
                         modifier = Modifier
-                            .layoutId(ID.toString())
+                            .layoutId(newSegment.ID.toString())
                             .fillMaxWidth()
                             .height(50.dp)
                             .background(ColourBackground))
                     {
                         Card(modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = if (name == "Repeat") 60.dp else 80.dp)
+                            .padding(horizontal = if (newSegment.name == "Repeat") 60.dp else 80.dp)
                             .fillMaxHeight(),
-                            colors = CardDefaults.cardColors(adjustColour(coloursMap[name]?:ColourBackground, lightness = 0.1f)),
+                            colors = CardDefaults.cardColors(adjustColour(coloursMap[newSegment.name]?:ColourBackground, lightness = 0.1f)),
                             shape = RoundedCornerShape(8.dp),
-                            onClick = { segmentEdit = true; segmentEditID = ID; showDialog = true;})
+                            onClick = { segmentEdit = true; segmentEditID = newSegment.ID; showDialog = true;})
                         {
                             Row(modifier = Modifier
                                 .fillMaxWidth()
@@ -163,16 +196,16 @@ class TrainingActivity : ComponentActivity() {
                             {
                                 Text(
                                     maxLines = 2,
-                                    text = if (ramp)
-                                        if (time[0] != 0)
-                                            "$name\n ${time[0]}m ${time[1]}s @ $start-$end%"
+                                    text = if (newSegment.ramp)
+                                        if (newSegment.time[0] != 0)
+                                            "$newSegment.name\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ $newSegment.start-$newSegment.end%"
                                         else
-                                            "$name\n ${time[1]}s @ $start-$end%"
+                                            "$newSegment.name\n ${newSegment.time[1]}s @ $newSegment.start-$newSegment.end%"
                                     else
-                                        if (time[0] != 0)
-                                            "$name\n ${time[0]}m ${time[1]}s @ $start%"
+                                        if (newSegment.time[0] != 0)
+                                            "$newSegment.name\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ $newSegment.start%"
                                         else
-                                            "$name\n ${time[1]}s @ $start%"
+                                            "$newSegment.name\n ${newSegment.time[1]}s @ $newSegment.start%"
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
                                 Button(modifier = Modifier
