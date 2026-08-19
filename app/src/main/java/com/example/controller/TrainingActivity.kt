@@ -107,7 +107,8 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
     fun removeSegmentWithID (id: Int)
     {
-        segments.removeAt(getIndexFromID(id))
+        val index = getIndexFromID(id)
+        if (index != -1) segments.removeAt(index)
     }
     fun getSegmentFromIndex(index: Int): Segment
     {
@@ -117,23 +118,15 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
         for (n in segments.indices) {
             if (segments[n].ID == id)
                 return segments[n]
-            else
-                return Segment("Error", id,arrayOf(0, 0), false, 0)
         }
-        return Segment("Error", id,arrayOf(0, 0), false, 0)
+        return Segment("Error", id, arrayOf(0, 0), false, 0)
     }
     fun getIndexFromID(id: Int): Int {
         for (n in segments.indices) {
             if (segments[n].ID == id)
                 return n
-            else
-                return -1
         }
-        return Segment("Error", id,arrayOf(0, 0), false, 0).ID)
-    }
-
-
-
+        return -1
     }
 }
 class TrainingActivity : ComponentActivity() {
@@ -142,14 +135,12 @@ class TrainingActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                //val defaultTraining = remember {mutableStateOf<TrainingPlan>}
-                val defaultTrainingPlan = TrainingPlan("Default", mutableListOf())
-               if (firstLoad){
-                   defaultTrainingPlan.addSegment("Warm Up", arrayOf(3,0),true, 10, 30)
-                   defaultTrainingPlan.addSegment("Interval", arrayOf(5,0),false, 50)
-                   defaultTrainingPlan.addSegment("Cool Down", arrayOf(3,0),true, 30, 10)
-
-                    firstLoad = false
+                val defaultTrainingPlan = remember {
+                    TrainingPlan("Default", mutableStateListOf()).apply {
+                        addSegment("Warm Up", arrayOf(3, 0), true, 10, 30)
+                        addSegment("Interval", arrayOf(5, 0), false, 50)
+                        addSegment("Cool Down", arrayOf(3, 0), true, 30, 10)
+                    }
                 }
 
                 val openTrainingPlan = defaultTrainingPlan
@@ -161,8 +152,8 @@ class TrainingActivity : ComponentActivity() {
                         onDismissRequest = { showDialog = false },
                         onConfirmation = { showDialog = false },
                         editSegment = segmentEdit,
-                        segment = segmentEditID,
-                        segmentList = openTrainingPlan
+                        segmentID = segmentEditID,
+                        trainingPlan = openTrainingPlan
                     )
                 }
 
@@ -171,9 +162,10 @@ class TrainingActivity : ComponentActivity() {
 
 
                 @Composable
-                fun drawSegmentCard(id: Int)
+                fun drawSegmentCard(trainingPlan: TrainingPlan, segmentIndex: Int)
                 //TODO ID or INDEX?
                 {
+                    val newSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
                     Box(
                         modifier = Modifier
                             .layoutId(newSegment.ID.toString())
@@ -198,14 +190,14 @@ class TrainingActivity : ComponentActivity() {
                                     maxLines = 2,
                                     text = if (newSegment.ramp)
                                         if (newSegment.time[0] != 0)
-                                            "$newSegment.name\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ $newSegment.start-$newSegment.end%"
+                                            "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
                                         else
-                                            "$newSegment.name\n ${newSegment.time[1]}s @ $newSegment.start-$newSegment.end%"
+                                            "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
                                     else
                                         if (newSegment.time[0] != 0)
-                                            "$newSegment.name\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ $newSegment.start%"
+                                            "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}%"
                                         else
-                                            "$newSegment.name\n ${newSegment.time[1]}s @ $newSegment.start%"
+                                            "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}%"
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
                                 Button(modifier = Modifier
@@ -215,7 +207,7 @@ class TrainingActivity : ComponentActivity() {
                                     colors = ButtonDefaults.buttonColors(containerColor = adjustColour(ColourButtons,lightness = -0.5f).copy(alpha=0.5f)),
                                     contentPadding = PaddingValues(0.dp),
                                     shape = CircleShape,
-                                    onClick = {deleteSegment(ID)})
+                                    onClick = {trainingPlan.removeSegmentWithIndex(segmentIndex)})
                                 {
                                     Icon(
                                         modifier = Modifier.size(32.dp),
@@ -259,15 +251,9 @@ class TrainingActivity : ComponentActivity() {
                                         .spacedBy(10.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally)
                                 {
-                                    for (item in openTraining.withIndex())
+                                    for (item in openTrainingPlan.segments.withIndex())
                                         {
-                                        createSegment(
-                                            name = item.value.name,
-                                            time = item.value.time,
-                                            ramp = item.value.ramp,
-                                            start = item.value.start,
-                                            end = item.value.end,
-                                            ID = item.index)
+                                            drawSegmentCard(openTrainingPlan, item.index)
                                     }
                                     Box(modifier = Modifier
                                         .width(80.dp)
@@ -359,36 +345,35 @@ class TrainingActivity : ComponentActivity() {
 
 @Composable
 fun DialogUpdateSegment(
-    segmentList: MutableList<Segment>,
     onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
     editSegment: Boolean,
-    segment: Int
+    segmentID: Int,
+    trainingPlan: TrainingPlan
 ) {
-
-    var currentRamp by remember { mutableStateOf(value = if(editSegment) segmentList[segment].ramp else false) }
-    val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) segmentList[segment].start.toString() else "")
-    val currentEndResistance = rememberTextFieldState(initialText = if(editSegment) segmentList[segment].end.toString() else "")
+    val segmentIndex = trainingPlan.getIndexFromID(segmentID)
+    val workingSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
+    var currentRamp by remember { mutableStateOf(value = if(editSegment) workingSegment.ramp else false) }
+    val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) workingSegment.start.toString() else "")
+    val currentEndResistance = rememberTextFieldState(initialText = if(editSegment) workingSegment.end.toString() else "")
     val currentTime = rememberTextFieldState(initialText =
         if (editSegment)
         {
-            var minutes = segmentList[segment].time[0].toString().filter { it.isDigit() }
-            var seconds = segmentList[segment].time[1].toString().filter { it.isDigit() }
+            var minutes = workingSegment.time[0].toString().filter { it.isDigit() }
+            var seconds = workingSegment.time[1].toString().filter { it.isDigit() }
             while (minutes.length <2)
             {
                 minutes = "0$minutes"
             }
-            while (seconds.length <2)
+            while (seconds.length < 2)
             {
                 seconds = "0$seconds"
             }
             minutes + seconds
-    }
-        else { "0000"}
-
+        }
+        else { "0000" }
     )
-    var currentSegmentType by remember { mutableStateOf(value = if (editSegment) segmentList[segment].name else "Interval") }
-
+    var currentSegmentType by remember { mutableStateOf(value = if (editSegment) workingSegment.name else "Interval") }
     val timeInputTransformation = InputTransformation {
         //val digits = asCharSequence().filter { it.isDigit() }
     }
@@ -434,34 +419,27 @@ fun DialogUpdateSegment(
     fun updateSegments() {
         if (editSegment) {
             val newTime = checkTime()
-            segmentList[segment].name = currentSegmentType
-            segmentList[segment].time[0] = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
-            segmentList[segment].time[1] = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
-            segmentList[segment].ramp = currentRamp
-            segmentList[segment].start = currentStartResistance.text.toString().toInt()
-            segmentList[segment].end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
+            trainingPlan.segments[segmentIndex].name = currentSegmentType
+            trainingPlan.segments[segmentIndex].time[0] = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
+            trainingPlan.segments[segmentIndex].time[1] = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
+            trainingPlan.segments[segmentIndex].ramp = currentRamp
+            trainingPlan.segments[segmentIndex].start = currentStartResistance.text.toString().toInt()
+            trainingPlan.segments[segmentIndex].end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
             //TODO: ADD TYPE TESTING HERE AND WHAT TO DO IF RESISTANCES NOT ENTERED
             onConfirmation()
-
-
         }
         else{
 
-            segmentList.add(
-                Segment(
-                    name = currentSegmentType,
-                    time = arrayOf(
-                        currentTime.text.toString().ifEmpty { "0000" }.substring(0, currentTime.text.toString().length - 2).toInt(),
-                        currentTime.text.toString().ifEmpty { "0000" }.substring(currentTime.text.toString().length - 2, currentTime.text.toString().length).toInt()),
-                    ramp = currentRamp,
-
-                    start = currentStartResistance.text.toString().toInt(),
-                    end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
-                    //TODO: ADD TYPE TESTING HERE AND WHAT TO DO IF RESISTANCES NOT ENTERED
-
-                )
+            trainingPlan.addSegment(
+                name = currentSegmentType,
+                time = arrayOf(
+                    currentTime.text.toString().ifEmpty { "0000" }.substring(0, currentTime.text.toString().length - 2).toInt(),
+                    currentTime.text.toString().ifEmpty { "0000" }.substring(currentTime.text.toString().length - 2, currentTime.text.toString().length).toInt()),
+                ramp = currentRamp,
+                start = currentStartResistance.text.toString().toInt(),
+                end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
+                //TODO: ADD TYPE TESTING HERE AND WHAT TO DO IF RESISTANCES NOT ENTERED
             )
-
             onConfirmation()
         }
     }
