@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,8 @@ import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 
@@ -96,15 +99,30 @@ class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boo
 
 class TrainingPlan (val name: String, val segments: MutableList<Segment>, var maxID: Int = 0)
 {
-    fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start)
+    fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
-        segments.add(Segment(name, maxID, time, ramp, start, end))
+        segments.add(position, Segment(name, maxID, time, ramp, start, end))
         maxID++
     }
     fun removeSegmentWithIndex(index: Int)
     {
         segments.removeAt(index)
     }
+
+    fun moveSegmentByIndex(id: Int, direction: String, index: Int = getIndexFromID(id)) {
+        if (index != -1) {
+            if (direction == "up" && index > 0) {
+                val temp = segments[index]
+                segments[index] = segments[index - 1]
+                segments[index - 1] = temp
+            } else if (direction == "down" && index < segments.size - 1) {
+                val temp = segments[index]
+                segments[index] = segments[index + 1]
+                segments[index + 1] = temp
+            }
+        }
+    }
+
     fun removeSegmentWithID (id: Int)
     {
         val index = getIndexFromID(id)
@@ -157,6 +175,7 @@ class TrainingActivity : ComponentActivity() {
                     )
                 }
 
+                var selectedSegment by remember { mutableIntStateOf(0) }
                 //TODO update openTraining to whatever's chosen in previous screen
 
 
@@ -173,13 +192,25 @@ class TrainingActivity : ComponentActivity() {
                             .height(50.dp)
                             .background(ColourBackground))
                     {
-                        Card(modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = if (newSegment.name == "Repeat") 60.dp else 80.dp)
-                            .fillMaxHeight(),
-                            colors = CardDefaults.cardColors(adjustColour(coloursMap[newSegment.name]?:ColourBackground, lightness = 0.1f)),
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 80.dp)
+                                .fillMaxHeight()
+                                .combinedClickable(
+                                    onClick = { selectedSegment = segmentIndex },
+                                    onLongClick = {
+                                        segmentEdit = true; segmentEditID =
+                                        newSegment.ID; showDialog = true;
+                                    }),
+                            colors = CardDefaults.cardColors(
+                                adjustColour(
+                                    coloursMap[newSegment.name] ?: ColourBackground,
+                                    lightness = 0.1f
+                                )
+                            ),
                             shape = RoundedCornerShape(8.dp),
-                            onClick = { segmentEdit = true; segmentEditID = newSegment.ID; showDialog = true;})
+                        )
                         {
                             Row(modifier = Modifier
                                 .fillMaxWidth()
@@ -244,6 +275,7 @@ class TrainingActivity : ComponentActivity() {
                                     .fillMaxHeight(0.9f)
                                     .fillMaxWidth()
                                     .background(color = ColourBackground)
+                                    .padding(top=16.dp),
 
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth(),
@@ -253,15 +285,89 @@ class TrainingActivity : ComponentActivity() {
                                 {
                                     for (item in openTrainingPlan.segments.withIndex())
                                         {
-                                            drawSegmentCard(openTrainingPlan, item.index)
-                                    }
+                                            Box(modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(50.dp)
+                                                    .zIndex(if (item.index == selectedSegment) 5f else 0f),
+                                                contentAlignment = Alignment.CenterStart)
+                                            {
+                                                drawSegmentCard(openTrainingPlan, item.index)
+                                                if (item.index == selectedSegment) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(60.dp)
+                                                            .wrapContentHeight(align = Alignment.CenterVertically, unbounded = true)
+                                                            .padding(horizontal = 8.dp)
+                                                            ,
+                                                    )
+                                                    {
+                                                        Column(
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            verticalArrangement = Arrangement.Center,
+                                                            horizontalAlignment = Alignment.CenterHorizontally
+                                                        )
+                                                        {
+                                                            Button(
+                                                                modifier = Modifier.size(40.dp).padding(bottom = 4.dp),
+                                                                shape = CircleShape,
+                                                                contentPadding = PaddingValues(0.dp),
+                                                                onClick =
+                                                                    {
+                                                                        if (selectedSegment > 0) {
+                                                                            openTrainingPlan.moveSegmentByIndex(
+                                                                                item.value.ID,
+                                                                                "up"
+                                                                            );
+                                                                            selectedSegment -= 1
+                                                                        }
+                                                                    },
+                                                                colors = ButtonDefaults.buttonColors(
+                                                                    containerColor = ColourButtons,
+                                                                    contentColor = Color.Black
+                                                                )
+                                                            )
+                                                            {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.ArrowUpward,
+                                                                    contentDescription = "Move up"
+                                                                )
+                                                            }
+                                                            Button(
+                                                                modifier = Modifier.size(40.dp).padding(top = 4.dp),
+                                                                shape = CircleShape,
+                                                                contentPadding = PaddingValues(0.dp),
+                                                                onClick =
+                                                                    {
+                                                                        if (selectedSegment < openTrainingPlan.segments.size - 1) {
+                                                                            openTrainingPlan.moveSegmentByIndex(
+                                                                                item.value.ID,
+                                                                                "down"
+                                                                            );
+                                                                            selectedSegment += 1
+                                                                        }
+                                                                    },
+                                                                colors = ButtonDefaults.buttonColors(
+                                                                    containerColor = ColourButtons,
+                                                                    contentColor = Color.Black
+                                                                )
+                                                            )
+                                                            {
+                                                                Icon(
+                                                                    imageVector = Icons.Default.ArrowDownward,
+                                                                    contentDescription = "Move down"
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     Box(modifier = Modifier
                                         .width(80.dp)
                                         .height(120.dp)
                                         .align(Alignment.End)
                                         .padding(horizontal = 8.dp)
-                                        //.background(color = ColourPlus10)
-                                        .zIndex(5f))
+                                    )
                                     {
                                         Column(modifier = Modifier
                                             .fillMaxWidth()
@@ -301,6 +407,7 @@ class TrainingActivity : ComponentActivity() {
                                             }
                                         }
                                     }
+
 
                                 }
 
@@ -468,31 +575,30 @@ fun DialogUpdateSegment(
                 for (item in SegmentType)
                 {
                     val colour = coloursMap[item] ?: ColourButtons
-                        ElevatedButton(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 0.dp)
-                                .padding(horizontal = 48.dp),
-                            colors = ButtonDefaults.elevatedButtonColors(
-                                containerColor =
-                                    if (item == currentSegmentType) adjustColour(
-                                        colour,
-                                        saturation = -0.6f,
-                                        lightness = 0.05f
-                                    ) else adjustColour(colour, lightness = 0.15f)
-                            ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = if (item == currentSegmentType) 0.dp else 6.dp),
-                            onClick = { currentSegmentType = item },
+                    ElevatedButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 0.dp)
+                            .padding(horizontal = 48.dp),
+                        colors = ButtonDefaults.elevatedButtonColors(
+                            containerColor =
+                                if (item == currentSegmentType) adjustColour(
+                                    colour,
+                                    saturation = -0.6f,
+                                    lightness = 0.05f
+                                ) else adjustColour(colour, lightness = 0.15f)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (item == currentSegmentType) 0.dp else 6.dp),
+                        onClick = { currentSegmentType = item }
+                        )
 
-                            )
-
-                        {
-                            Text(
-                                text = item,
-                                color = if (item == currentSegmentType) Color.Black else Color.DarkGray,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            )
-                        }
+                    {
+                        Text(
+                            text = item,
+                            color = if (item == currentSegmentType) Color.Black else Color.DarkGray,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
 
                 }
                 OutlinedTextField(
