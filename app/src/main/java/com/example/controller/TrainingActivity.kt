@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -185,6 +186,7 @@ class TrainingActivity : ComponentActivity() {
                 //TODO ID or INDEX?
                 {
                     val newSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
+                    val cardColor = coloursMap[newSegment.name] ?: ColourBackground
                     Box(
                         modifier = Modifier
                             .layoutId(newSegment.ID.toString())
@@ -204,11 +206,9 @@ class TrainingActivity : ComponentActivity() {
                                         newSegment.ID; showDialog = true;
                                     }),
                             colors = CardDefaults.cardColors(
-                                adjustColour(
-                                    coloursMap[newSegment.name] ?: ColourBackground,
-                                    lightness = 0.1f
-                                )
+                                adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
                             ),
+                            border = BorderStroke(if (selectedSegment == segmentIndex) 3.dp else 0.dp, adjustColour(cardColor,saturation = 1f,lightness = -0.05f)),
                             shape = RoundedCornerShape(8.dp),
                         )
                         {
@@ -280,7 +280,7 @@ class TrainingActivity : ComponentActivity() {
                             ) {
                                 Column(modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement
-                                        .spacedBy(10.dp),
+                                        .spacedBy(5.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally)
                                 {
                                     for (item in openTrainingPlan.segments.withIndex())
