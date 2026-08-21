@@ -74,8 +74,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.zIndex
 
 import androidx.core.graphics.ColorUtils.colorToHSL
+import kotlinx.coroutines.selects.select
 
-//TODO NEXT: ADD REPEAT BUTTON
 fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
     val hsl = FloatArray(3)
     colorToHSL(colour.toArgb(), hsl)
@@ -103,6 +103,17 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
         segments.add(position, Segment(name, maxID, time, ramp, start, end))
+        maxID++
+    }
+
+    fun addRepeat(repeats: Int, position: Int = segments.size) {
+        if (position == -1)
+            segments.add(Segment("Repeat", maxID, arrayOf(0, 0), false, repeats))
+        else
+            segments.add(position,Segment("Repeat", maxID, arrayOf(0, 0), false, repeats))
+        //TODO add nesting inside repeats
+
+        //segments.add(Segment("EndRepeat", maxID, arrayOf(0, 0), false, repeats))
         maxID++
     }
     fun removeSegmentWithIndex(index: Int)
@@ -165,25 +176,38 @@ class TrainingActivity : ComponentActivity() {
                 val openTrainingPlan = defaultTrainingPlan
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
-                var showDialog by remember { mutableStateOf(false) }
-                if (showDialog){
+                var selectedSegment by remember { mutableIntStateOf(0) }
+                var showSegmentDialog by remember { mutableStateOf(false) }
+                var showRepeatDialog by remember { mutableStateOf(false) }
+                if (showSegmentDialog){
                     DialogUpdateSegment(
-                        onDismissRequest = { showDialog = false },
-                        onConfirmation = { showDialog = false },
+                        onDismissRequest = { showSegmentDialog = false },
+                        onConfirmation = { showSegmentDialog = false },
                         editSegment = segmentEdit,
-                        segmentID = segmentEditID,
+                        editSegmentID = segmentEditID,
+                        selectedSegmentID = selectedSegment,
                         trainingPlan = openTrainingPlan
                     )
                 }
 
-                var selectedSegment by remember { mutableIntStateOf(0) }
+                if (showRepeatDialog){
+                    DialogUpdateRepeat(
+                        onDismissRequest = { showRepeatDialog = false },
+                        onConfirmation = { showRepeatDialog = false },
+                        editRepeat = segmentEdit,
+                        editRepeatID = segmentEditID,
+                        selectedSegmentID = selectedSegment,
+                        trainingPlan = openTrainingPlan
+                    )
+                }
+
+
                 //TODO update openTraining to whatever's chosen in previous screen
 
 
 
                 @Composable
                 fun drawSegmentCard(trainingPlan: TrainingPlan, segmentIndex: Int)
-                //TODO ID or INDEX?
                 {
                     val newSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
                     val cardColor = coloursMap[newSegment.name] ?: ColourBackground
@@ -203,12 +227,12 @@ class TrainingActivity : ComponentActivity() {
                                     onClick = { selectedSegment = segmentIndex },
                                     onLongClick = {
                                         segmentEdit = true; segmentEditID =
-                                        newSegment.ID; showDialog = true;
+                                        newSegment.ID; showSegmentDialog = true;
                                     }),
                             colors = CardDefaults.cardColors(
                                 adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
                             ),
-                            border = BorderStroke(if (selectedSegment == segmentIndex) 3.dp else 0.dp, adjustColour(cardColor,saturation = 1f,lightness = -0.05f)),
+                            //border = BorderStroke(if (selectedSegment == segmentIndex) 3.dp else 0.dp, adjustColour(cardColor,saturation = 1f,lightness = -0.05f)),
                             shape = RoundedCornerShape(8.dp),
                         )
                         {
@@ -219,17 +243,22 @@ class TrainingActivity : ComponentActivity() {
                             {
                                 Text(
                                     maxLines = 2,
-                                    text = if (newSegment.ramp)
-                                        if (newSegment.time[0] != 0)
-                                            "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
+                                    text = if(newSegment.name == "Repeat")
+                                    {
+                                        "Repeat x${newSegment.start}"
+                                    }
+                                    else {
+                                        if (newSegment.ramp)
+                                            if (newSegment.time[0] != 0)
+                                                "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
+                                            else
+                                                "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
                                         else
-                                            "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}-${newSegment.end}%"
-                                    else
-                                        if (newSegment.time[0] != 0)
-                                            "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}%"
-                                        else
-                                            "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}%"
-                                )
+                                            if (newSegment.time[0] != 0)
+                                                "${newSegment.name}\n ${newSegment.time[0]}m ${newSegment.time[1]}s @ ${newSegment.start}%"
+                                            else
+                                                "${newSegment.name}\n ${newSegment.time[1]}s @ ${newSegment.start}%"
+                                    })
                                 Spacer(modifier = Modifier.weight(1f))
                                 Button(modifier = Modifier
                                     .width(30.dp)
@@ -379,7 +408,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 shape = CircleShape,
                                                 contentPadding = PaddingValues(0.dp),
-                                                onClick = {showDialog=true;segmentEdit = false},
+                                                onClick = {showSegmentDialog=true; segmentEdit = false},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -395,7 +424,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 contentPadding = PaddingValues(0.dp),
                                                 shape = CircleShape,
-                                                onClick = {showDialog = true; segmentEdit = false},
+                                                onClick = {showRepeatDialog = true; segmentEdit = false},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -455,10 +484,11 @@ fun DialogUpdateSegment(
     onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
     editSegment: Boolean,
-    segmentID: Int,
+    editSegmentID: Int,
+    selectedSegmentID: Int = -1,
     trainingPlan: TrainingPlan
 ) {
-    val segmentIndex = trainingPlan.getIndexFromID(segmentID)
+    val segmentIndex = trainingPlan.getIndexFromID(editSegmentID)
     val workingSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
     var currentRamp by remember { mutableStateOf(value = if(editSegment) workingSegment.ramp else false) }
     val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) workingSegment.start.toString() else "")
@@ -691,5 +721,85 @@ fun DialogUpdateSegment(
                 }
             }
         }
+    }
+
+}
+@Composable
+fun DialogUpdateRepeat(
+    onDismissRequest: () -> Unit,
+    onConfirmation: () -> Unit,
+    editRepeat: Boolean,
+    editRepeatID: Int,
+    selectedSegmentID: Int = -1,
+    trainingPlan: TrainingPlan
+) {
+    val repeatIndex = trainingPlan.getIndexFromID(editRepeatID)
+    val workingSegment = trainingPlan.getSegmentFromIndex(repeatIndex)
+    val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.start.toString() else "")
+
+    fun updateRepeats(){
+        if (editRepeat)
+            trainingPlan.segments[repeatIndex].start = currentRepeats.text.toString().toInt()
+        else
+            trainingPlan.addRepeat(
+                repeats = currentRepeats.text.toString().toInt(),
+                position = if (selectedSegmentID != -1) selectedSegmentID else -1
+            )
+        onConfirmation()
+    }
+
+    Dialog(onDismissRequest = { onDismissRequest() }) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                Text(
+                    text = if (editRepeat) "Edit Repeat" else "New Repeat",
+                    fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp),
+                )
+                OutlinedTextField(
+                    state = currentRepeats,
+                    lineLimits = TextFieldLineLimits.SingleLine,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    label = { Text("Repeats") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    MyButton(
+                        onClick = { onDismissRequest() },
+                        label = "Back",
+                        backgroundColor = ColourButtons,
+                        textColor = Color.Black,
+                        width = 120.dp,
+                        roundCorners = 12.dp,
+                        modifier = Modifier.padding(all = 8.dp),
+                    )
+                    MyButton(
+                        onClick = { updateRepeats()},
+                        label = if (editRepeat) "Update" else "Add",
+                        backgroundColor = ColourButtons,
+                        textColor = Color.Black,
+                        width = 120.dp,
+                        roundCorners = 12.dp,
+                        modifier = Modifier.padding(all = 8.dp),
+                    )
+                }
+            }
+        }
+
     }
 }
