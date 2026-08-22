@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -75,7 +74,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 
 import androidx.core.graphics.ColorUtils.colorToHSL
-import kotlinx.coroutines.selects.select
+
 
 fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
     val hsl = FloatArray(3)
@@ -88,7 +87,7 @@ fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightn
     return Color.hsl(newHue,newSaturation, newLightness)
 }
 
-class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val moveable: Boolean, val editable: Boolean, val segment: Boolean)
+class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val moveable: Boolean = true, val editable: Boolean = true, val segment: Boolean = true)
 
 val standardSegmentText: (Segment) -> String = { segment ->
     "${segment.name}\n" +
@@ -97,13 +96,15 @@ val standardSegmentText: (Segment) -> String = { segment ->
             (if (segment.ramp) "-${segment.end}%" else "")
 }
 
+const val nestSizeReduction: Int = 20
+//TODO consider only have nest size reduction on left?
 val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
-    "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText, true, true, true),
-    "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText, true, true,true),
-    "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText, true, true,true),
-    "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText, true, true,true),
-    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.start}" }, true, true,false),
-    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, true, false,false)
+    "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
+    "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
+    "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
+    "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
+    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.start}" }, segment = false),
+    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
 )
 
 
@@ -137,21 +138,89 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
     fun removeSegmentWithIndex(index: Int)
     {
-        segments.removeAt(index)
+        if (segmentTypes[segments[index].name]?.segment == true)
+            segments.removeAt(index)
+        else {
+            val repeatEndIndex = getIndexFromID(segments[index].ID, index + 1)
+
+            for (i in index..repeatEndIndex)
+            {
+                segments[i].nest--
+            }
+            segments.removeAt(index)
+            segments.removeAt(repeatEndIndex - 1)
+        }
+
     }
 
-    fun moveSegmentByIndex(id: Int, direction: String, index: Int = getIndexFromID(id)) {
+    fun moveSegmentByIndex(id: Int = 0, direction: String, index: Int = getIndexFromID(id)): Int {
+        var increment: Int = 0
         if (index != -1) {
+    //TODO - moving repeats also moves segments in or out - adjust nesting for that to
+            //TODO - why aren't segments/repeats being added after selected segment?
+            //TODO - repeat formatting
+            //TODO - implement controls on max nested repeats
+            val currentElement = segments[index]
             if (direction == "up" && index > 0) {
-                val temp = segments[index]
-                segments[index] = segments[index - 1]
-                segments[index - 1] = temp
+                Log.d("Move", "up")
+                val nextElement = segments[index - 1]
+
+                if (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && currentElement.ID == nextElement.ID) {
+                    // Do nothing
+                    increment = 0
+                }
+
+                else if (nextElement.name == "RepeatEnd") {
+                    increment = -1
+                    segments[index].nest ++
+                }
+                else if (nextElement.name == "RepeatStart"){
+                    increment = -1
+                    segments[index].nest --
+                }
+                else
+                {
+                    increment = -1
+                }
+
+                //what is the current element?
+                // if its RepeatEnd, it cannot move beyond it's own RepeatStart
+
+
+                //what is the next element up?
+                // if the next element up is a RepeatEnd, nest ++
+                // if the next element up is a RepeatStart, nest--
+
             } else if (direction == "down" && index < segments.size - 1) {
-                val temp = segments[index]
-                segments[index] = segments[index + 1]
-                segments[index + 1] = temp
+                Log.d("Move", "down")
+                val nextElement = segments[index + 1]
+                if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID == nextElement.ID) {
+                    // Do nothing
+                    increment = 0
+                }
+                else if (nextElement.name == "RepeatEnd") {
+                    increment = 1
+                    segments[index].nest --
+                }
+                else if (nextElement.name == "RepeatStart"){
+                    increment = 1
+                    segments[index].nest ++
+                }
+                else
+                {
+                    increment = 1
+                }
+
+
+
             }
+            Log.d("Move",increment.toString())
+            val temp = segments[index]
+            segments[index] = segments[index + increment]
+            segments[index + increment] = temp
+
         }
+        return increment
     }
 
     fun removeSegmentWithID (id: Int)
@@ -161,7 +230,7 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
     fun getSegmentFromIndex(index: Int): Segment
     {
-        return segments[index]
+        return segments.getOrNull(index) ?: Segment("Empty", -1, arrayOf(0, 0), false, 0)
     }
     fun getSegmentFromID(id: Int): Segment {
         for (n in segments.indices) {
@@ -170,8 +239,9 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
         }
         return Segment("Error", id, arrayOf(0, 0), false, 0)
     }
-    fun getIndexFromID(id: Int): Int {
-        for (n in segments.indices) {
+    fun getIndexFromID(id: Int, start: Int = 0): Int {
+        if (segments.isEmpty()) return -1
+        for (n in start until segments.size) {
             if (segments[n].ID == id)
                 return n
         }
@@ -232,6 +302,8 @@ class TrainingActivity : ComponentActivity() {
                     val cardColor = segmentTypes[newSegment.name]?.colour ?: ColourBackground
                     val cardHeight = segmentTypes[newSegment.name]?.height ?: 50.dp
                     val cardText = segmentTypes[newSegment.name]?.text?.invoke(newSegment) ?: "Unknown"
+                    val cardEditable = segmentTypes[newSegment.name]?.editable ?: true
+                    val cardSegment = segmentTypes[newSegment.name]?.segment ?: true
                     Box(
                         modifier = Modifier
                             .layoutId(newSegment.ID.toString())
@@ -242,19 +314,20 @@ class TrainingActivity : ComponentActivity() {
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = (80 + newSegment.nest * 10).dp)
+                                .padding(start = (80 + newSegment.nest * nestSizeReduction).dp)
+                                .padding(end = 80.dp)
                                 .fillMaxHeight()
                                 .combinedClickable(
                                     onClick = { selectedSegment = if (selectedSegment==segmentIndex) -1 else segmentIndex },
-                                    onLongClick = {
-                                        segmentEdit = true; segmentEditID =
-                                        newSegment.ID; showSegmentDialog = true;
+                                    onLongClick = { if (cardEditable) {
+                                        segmentEdit = true;
+                                        segmentEditID = newSegment.ID;
+                                        if (cardSegment) showSegmentDialog = true else showRepeatDialog = true}
                                     }),
                             colors = CardDefaults.cardColors(
                                 adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
                             ),
-                            //border = BorderStroke(if (selectedSegment == segmentIndex) 3.dp else 0.dp, adjustColour(cardColor,saturation = 1f,lightness = -0.05f)),
-                            shape = RoundedCornerShape(8.dp),
+                           shape = RoundedCornerShape(8.dp),
                         )
                         {
                             Row(modifier = Modifier
@@ -266,7 +339,7 @@ class TrainingActivity : ComponentActivity() {
                                     maxLines = 2,
                                     text = cardText
                                     )
-                                if (newSegment.name != "RepeatEnd") {
+                                if (cardEditable) {
                                     Spacer(modifier = Modifier.weight(1f))
 
                                     Button(
@@ -360,11 +433,11 @@ class TrainingActivity : ComponentActivity() {
                                                                 onClick =
                                                                     {
                                                                         if (selectedSegment > 0) {
-                                                                            openTrainingPlan.moveSegmentByIndex(
-                                                                                item.value.ID,
-                                                                                "up"
-                                                                            );
-                                                                            selectedSegment -= 1
+                                                                            selectedSegment += openTrainingPlan.moveSegmentByIndex(index =
+                                                                                item.index,
+                                                                                direction = "up"
+                                                                            )
+                                                                            //selectedSegment += 1
                                                                         }
                                                                     },
                                                                 colors = ButtonDefaults.buttonColors(
@@ -385,11 +458,11 @@ class TrainingActivity : ComponentActivity() {
                                                                 onClick =
                                                                     {
                                                                         if (selectedSegment < openTrainingPlan.segments.size - 1) {
-                                                                            openTrainingPlan.moveSegmentByIndex(
-                                                                                item.value.ID,
-                                                                                "down"
-                                                                            );
-                                                                            selectedSegment += 1
+                                                                            selectedSegment += openTrainingPlan.moveSegmentByIndex(
+                                                                                index = item.index,
+                                                                                direction = "down"
+                                                                            )
+                                                                            //selectedSegment += 1
                                                                         }
                                                                     },
                                                                 colors = ButtonDefaults.buttonColors(
@@ -425,7 +498,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 shape = CircleShape,
                                                 contentPadding = PaddingValues(0.dp),
-                                                onClick = {showSegmentDialog=true; segmentEdit = false},
+                                                onClick = {showSegmentDialog=true; segmentEdit = false; selectedSegment = -1;},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -441,7 +514,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 contentPadding = PaddingValues(0.dp),
                                                 shape = CircleShape,
-                                                onClick = {showRepeatDialog = true; segmentEdit = false},
+                                                onClick = {showRepeatDialog = true; segmentEdit = false; selectedSegment = -1},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -505,8 +578,12 @@ fun DialogUpdateSegment(
     selectedSegmentID: Int = -1,
     trainingPlan: TrainingPlan
 ) {
+    Log.d("FIX", editSegmentID.toString())
+    Log.d("FIX", editSegment.toString())
     val segmentIndex = trainingPlan.getIndexFromID(editSegmentID)
+    Log.d("FIX","HERE")
     val workingSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
+    Log.d("FIX","HERE")
     var currentRamp by remember { mutableStateOf(value = if(editSegment) workingSegment.ramp else false) }
     val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) workingSegment.start.toString() else "")
     val currentEndResistance = rememberTextFieldState(initialText = if(editSegment) workingSegment.end.toString() else "")
@@ -751,6 +828,7 @@ fun DialogUpdateRepeat(
     selectedSegmentID: Int = -1,
     trainingPlan: TrainingPlan
 ) {
+
     val repeatIndex = trainingPlan.getIndexFromID(editRepeatID)
     val workingSegment = trainingPlan.getSegmentFromIndex(repeatIndex)
     val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.start.toString() else "")
