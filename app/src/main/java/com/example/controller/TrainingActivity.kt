@@ -122,23 +122,66 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
     }
 
     fun addRepeat(repeats: Int, position: Int = segments.size) {
-        //TODO- deal with adding repeats around repeats
-        //TODO - when a repeat is selected, add repeatstart above, repeat endbelow and nest everything between
-        // TODO - when a segment is selected, add repeat start above, repeat end below and nest segment
-        //TODO - but check for too much nesting, else add at end.
-        //
-        Log.d("POSITION",position.toString())
-        if (position == -1) {
 
-            segments.add(Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats))
-            segments.add(Segment("RepeatEnd", maxID, arrayOf(0, 0), false, repeats))
+
+        //TODO fix crash when adding near top or bottom of list
+        var added = false
+
+        var repeatStartIndex = segments.size
+        var repeatEndIndex = segments.size+1
+        var maxNest = 0
+
+
+            if (segments[position].name.contains("Repeat"))
+            {
+
+                for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
+                {
+                    if (segments[i].nest > maxNest) maxNest = segments[i].nest
+                }
+                if (maxNest < 2){
+                    repeatStartIndex =
+                        if (segments[position].name == "RepeatStart") position else
+                            getIndexFromID(segments[position].ID)
+
+                    repeatEndIndex = if (segments[position].name == "RepeatStart")
+                        getIndexFromID(segments[position].ID,position+1) else
+                            position
+
+
+                    for (i in repeatStartIndex .. repeatEndIndex)
+                        segments[i].nest ++
+
+                    repeatEndIndex += 2
+                    added = true
+                }
+                else{
+                    added = true
+                }
+            }
+            else {
+                if (segments[position].nest < 2) {
+                    segments[position].nest++
+                    repeatStartIndex = position
+                    repeatEndIndex = position + 2
+
+                    added = true
+                }
+
+            }
+
+        if (added)
+        {
+            segments.add(
+                repeatStartIndex,
+                Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats)
+            )
+            segments.add(
+                repeatEndIndex,
+                Segment("RepeatEnd", maxID, arrayOf(0, 0), false, repeats)
+            )
+            maxID++
         }
-        else {
-            segments[position].nest ++
-            segments.add(position, Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats))
-            segments.add(position + 2, Segment("RepeatEnd", maxID, arrayOf(0, 0), false, repeats))
-        }
-        maxID++
     }
     fun removeSegmentWithIndex(index: Int)
     {
