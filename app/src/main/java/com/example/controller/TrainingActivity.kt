@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 
 import androidx.compose.material3.Card
@@ -42,7 +43,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +67,7 @@ import com.example.controller.ui.theme.ColourMinus10
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,7 +113,7 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 var firstLoad = true
 class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start, var nest: Int = 0)
 
-class TrainingPlan (val name: String, val segments: MutableList<Segment>, var maxID: Int = 0)
+class TrainingPlan (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0)
 {
     fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
@@ -295,7 +296,7 @@ class TrainingActivity : ComponentActivity() {
         setContent {
             ControllerTheme {
                 val defaultTrainingPlan = remember {
-                    TrainingPlan("Default", mutableStateListOf()).apply {
+                    TrainingPlan("New Workout", mutableStateListOf()).apply {
                         addSegment("Warm Up", arrayOf(3, 0), true, 10, 30)
                         addSegment("Interval", arrayOf(5, 0), false, 50)
                         addSegment("Cool Down", arrayOf(3, 0), true, 30, 10)
@@ -308,6 +309,7 @@ class TrainingActivity : ComponentActivity() {
                 var selectedSegment by remember { mutableIntStateOf(-1) }
                 var showSegmentDialog by remember { mutableStateOf(false) }
                 var showRepeatDialog by remember { mutableStateOf(false) }
+                var editNameDialog by remember { mutableStateOf(false) }
                 if (showSegmentDialog){
                     DialogUpdateSegment(
                         onDismissRequest = { showSegmentDialog = false },
@@ -320,7 +322,6 @@ class TrainingActivity : ComponentActivity() {
                 }
 
                 if (showRepeatDialog){
-                    Log.d("Position","selectedSegment $selectedSegment")
                     DialogUpdateRepeat(
                         onDismissRequest = { showRepeatDialog = false },
                         onConfirmation = { showRepeatDialog = false },
@@ -330,7 +331,13 @@ class TrainingActivity : ComponentActivity() {
                         trainingPlan = openTrainingPlan
                     )
                 }
-
+                if (editNameDialog){
+                    DialogUpdateName(
+                        onDismissRequest = { editNameDialog = false },
+                        onConfirmation = { editNameDialog = false },
+                        trainingPlan = openTrainingPlan
+                    )
+                }
 
                 //TODO update openTraining to whatever's chosen in previous screen
 
@@ -436,14 +443,40 @@ class TrainingActivity : ComponentActivity() {
                                     .fillMaxHeight(0.9f)
                                     .fillMaxWidth()
                                     .background(color = ColourBackground)
-                                    .padding(top=16.dp),
+                                    .padding(),
 
                             ) {
+
                                 Column(modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement
                                         .spacedBy(5.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally)
                                 {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.Bottom
+                                    )
+                                    {
+                                        TextButton(
+
+                                            modifier = Modifier.padding(start=16.dp),
+                                            onClick = {editNameDialog = true}
+                                        )
+                                        {
+                                            Text(
+                                                fontSize = 24.sp,
+                                                color = adjustColour(Color.Gray, lightness = -0.1f),
+                                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                                text = openTrainingPlan.name)
+                                            Icon(
+                                                modifier = Modifier.size(20.dp).padding(start=4.dp),
+                                                imageVector = Icons.Default.Edit,
+                                                contentDescription = "Edit Name",
+                                                tint = Color.Gray
+                                            )
+                                        }
+
+                                    }
                                     for (item in openTrainingPlan.segments.withIndex())
                                         {
                                             Box(modifier = Modifier
@@ -942,4 +975,78 @@ fun DialogUpdateRepeat(
         }
 
     }
+}
+@Composable
+fun DialogUpdateName(
+    onDismissRequest: () -> Unit,
+    onConfirmation: () -> Unit,
+    trainingPlan: TrainingPlan
+)
+{
+    val currentName = rememberTextFieldState(initialText = trainingPlan.name)
+
+    fun updateName(){
+        if (currentName.text.toString() != "") {
+            trainingPlan.name = currentName.text.toString()
+
+            onConfirmation()
+        }
+        else
+            onDismissRequest()
+    }
+
+Dialog(onDismissRequest = { onDismissRequest() }) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Text(
+                text = "Edit Name",
+                fontSize = 20.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                modifier = Modifier.padding(16.dp),
+            )
+            OutlinedTextField(
+                state = currentName,
+                lineLimits = TextFieldLineLimits.SingleLine,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                label = { Text("Name") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                MyButton(
+                    onClick = { onDismissRequest() },
+                    label = "Back",
+                    backgroundColor = ColourButtons,
+                    textColor = Color.Black,
+                    width = 120.dp,
+                    roundCorners = 12.dp,
+                    modifier = Modifier.padding(all = 8.dp),
+                )
+                MyButton(
+                    onClick = { updateName()},
+                    label = "Update",
+                    backgroundColor = ColourButtons,
+                    textColor = Color.Black,
+                    width = 120.dp,
+                    roundCorners = 12.dp,
+                    modifier = Modifier.padding(all = 8.dp),
+                )
+            }
+        }
+    }
+
+}
 }
