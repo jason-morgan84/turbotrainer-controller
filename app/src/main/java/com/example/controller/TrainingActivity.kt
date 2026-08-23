@@ -97,7 +97,7 @@ val standardSegmentText: (Segment) -> String = { segment ->
 }
 
 const val nestSizeReduction: Int = 20
-//TODO consider only have nest size reduction on left?
+
 val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
     "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
     "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
@@ -121,6 +121,11 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
 
     fun addRepeat(repeats: Int, position: Int = segments.size) {
+        //TODO- deal with adding repeats around repeats
+        //TODO - when a repeat is selected, add repeatstart above, repeat endbelow and nest everything between
+        // TODO - when a segment is selected, add repeat start above, repeat end below and nest segment
+        //TODO - but check for too much nesting, else add at end.
+        //
         Log.d("POSITION",position.toString())
         if (position == -1) {
 
@@ -186,66 +191,75 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
 
     fun moveRepeatbyIndex (increment: Int = 0, index: Int): Int
+
     {
         var movement = increment
+        var allowMovement = true
         val currentElement = segments[index]
         val nextElement = segments[index + increment]
+        var addIndex = index + increment
+        var removeIndex = index
 
         if ((currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && currentElement.ID == nextElement.ID && movement == -1) ||
             (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID == nextElement.ID && movement == 1) ||
             (currentElement.name == "RepeatStart" && nextElement.name == "RepeatStart" && movement == -1) ||
-            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatEnd"&& movement == 1)){
+            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && movement == -1) ||
+            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatEnd")){
             // A RepeatStart can't go past its own RepeatEnd
             // A RepeatEnd can't got past its own RepeatStart
             // A RepeatStart can't go up past another RepeatStart - swapping of repeats like this seems like it could get messy, just edit them
-            // A RepeatEnd can't go down past another RepeatEnd
+            // A RepeatEnd can't go up or down past another RepeatEnd
             // Do nothing
-            movement = 0
+            allowMovement = false
         }
         else if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID != nextElement.ID){
-            //this means a repeat start has moved up and crashed into the end of another repeat
-                // if this doesn't result in the the contents of the other repeat being nested more than 2
-            //get id of above RepeatStart
+            // movement must be up (movement down dealt with above, results in no move)
             val aboveRepeatEndIndex = index - 1
             val aboveRepeatStartIndex = getIndexFromID(segments[aboveRepeatEndIndex].ID)
 
             for (i in aboveRepeatStartIndex..aboveRepeatEndIndex){
-                if (segments[i].nest == 2) movement = 0
+                if (segments[i].nest == 2) allowMovement = false
             }
-            if (movement != 0){
-                for (i in aboveRepeatStartIndex..aboveRepeatEndIndex){
-                    segments[i].nest ++
+
+            if (allowMovement) {
+                for (i in aboveRepeatStartIndex..aboveRepeatEndIndex) {
+                    segments[i].nest++
                 }
-                movement += (aboveRepeatStartIndex - aboveRepeatEndIndex)
+                addIndex = aboveRepeatStartIndex
+                removeIndex = index + 1
+                movement = -(index - aboveRepeatStartIndex)
             }
-                // whole repeat above should be swallowed
-            //TODO - need to implement bigger moves - move current segment up 5, then move every intervening segment down by 1
-            for (i in 0..movement){
-                val temp = segments[index-i]
-                segments[index-i] = segments[index-i + increment]
-                segments[index -i+ movement] = temp
-
+        }
+        else if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatStart" && currentElement.ID != nextElement.ID){
+            // movement must be down (movement up dealt with above, results in no move)
+            val belowRepeatStartIndex = index + 1
+            val belowRepeatEndIndex = getIndexFromID(segments[belowRepeatStartIndex].ID,index + 2)
+            // don't need to test for nesting, this will be moving items out of nested repeat
+            for (i in belowRepeatStartIndex..belowRepeatEndIndex){
+                segments[i].nest --
             }
-
+            addIndex = belowRepeatEndIndex + 1
+            removeIndex = index
+            movement = belowRepeatEndIndex - belowRepeatStartIndex + 1
         }
         else {
-
             if (currentElement.name == "RepeatStart") {
                 segments[index + increment].nest -= increment
             } else if (currentElement.name == "RepeatEnd") {
                 segments[index + increment].nest += increment
             }
-            val temp = segments[index]
-            segments[index] = segments[index + movement]
-            segments[index + movement] = temp
+            addIndex = if (movement > 0) index + movement + 1 else index + movement
+            removeIndex = if (movement<0) index  + 1 else index
         }
+        if (allowMovement) {
 
-        // if moving repeat results in an element being nested more than twice, no movement
-        // if moving a repeat results in hitting another repeat, whole repeat must be moved in
+            segments.add(addIndex, segments[index])
+            segments.removeAt(removeIndex)
+            return movement
+        }
+        else
+            return 0
 
-
-
-        return movement
     }
 
 
@@ -352,7 +366,8 @@ class TrainingActivity : ComponentActivity() {
                                         if (cardSegment) showSegmentDialog = true else showRepeatDialog = true}
                                     }),
                             colors = CardDefaults.cardColors(
-                                adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
+                                containerColor = if (newSegment.name.contains("Repeat")) adjustColour( cardColor, lightness = 0.1f - (newSegment.nest * 0.1f))
+                                else adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
                             ),
                            shape = RoundedCornerShape(8.dp),
                         )
