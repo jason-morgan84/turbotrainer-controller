@@ -93,7 +93,7 @@ val standardSegmentText: (Segment) -> String = { segment ->
     "${segment.name}\n" +
             (if (segment.time[0] != 0) "${segment.time[0]}m " else "") +
             "${segment.time[1]}s @ ${segment.start}" +
-            (if (segment.ramp) "-${segment.end}%" else "")
+            (if (segment.ramp) "-${segment.end}%" else "%")
 }
 
 const val nestSizeReduction: Int = 20
@@ -121,6 +121,7 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
     }
 
     fun addRepeat(repeats: Int, position: Int = segments.size) {
+        Log.d("POSITION",position.toString())
         if (position == -1) {
 
             segments.add(Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats))
@@ -131,9 +132,6 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
             segments.add(position, Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats))
             segments.add(position + 2, Segment("RepeatEnd", maxID, arrayOf(0, 0), false, repeats))
         }
-        //TODO add nesting inside repeats
-
-        //segments.add(Segment("EndRepeat", maxID, arrayOf(0, 0), false, repeats))
         maxID++
     }
     fun removeSegmentWithIndex(index: Int)
@@ -152,76 +150,104 @@ class TrainingPlan (val name: String, val segments: MutableList<Segment>, var ma
         }
 
     }
-
-    fun moveSegmentByIndex(id: Int = 0, direction: String, index: Int = getIndexFromID(id)): Int {
-        var increment: Int = 0
+    fun move(id: Int = 0, direction: String, index: Int = getIndexFromID(id)): Int
+    {
         if (index != -1) {
-    //TODO - moving repeats also moves segments in or out - adjust nesting for that to
-            //TODO - why aren't segments/repeats being added after selected segment?
-            //TODO - repeat formatting
-            //TODO - implement controls on max nested repeats
-            val currentElement = segments[index]
-            if (direction == "up" && index > 0) {
-                Log.d("Move", "up")
-                val nextElement = segments[index - 1]
-
-                if (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && currentElement.ID == nextElement.ID) {
-                    // Do nothing
-                    increment = 0
-                }
-
-                else if (nextElement.name == "RepeatEnd") {
-                    increment = -1
-                    segments[index].nest ++
-                }
-                else if (nextElement.name == "RepeatStart"){
-                    increment = -1
-                    segments[index].nest --
-                }
-                else
-                {
-                    increment = -1
-                }
-
-                //what is the current element?
-                // if its RepeatEnd, it cannot move beyond it's own RepeatStart
-
-
-                //what is the next element up?
-                // if the next element up is a RepeatEnd, nest ++
-                // if the next element up is a RepeatStart, nest--
-
-            } else if (direction == "down" && index < segments.size - 1) {
-                Log.d("Move", "down")
-                val nextElement = segments[index + 1]
-                if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID == nextElement.ID) {
-                    // Do nothing
-                    increment = 0
-                }
-                else if (nextElement.name == "RepeatEnd") {
-                    increment = 1
-                    segments[index].nest --
-                }
-                else if (nextElement.name == "RepeatStart"){
-                    increment = 1
-                    segments[index].nest ++
-                }
-                else
-                {
-                    increment = 1
-                }
-
-
-
-            }
-            Log.d("Move",increment.toString())
-            val temp = segments[index]
-            segments[index] = segments[index + increment]
-            segments[index + increment] = temp
-
+            val increments: Map<String, Int> = mapOf("up" to -1, "down" to 1).withDefault { 0 }
+            val increment =
+                if ((index + increments.getValue(direction)) in segments.indices)
+                    increments.getValue(direction) else 0
+            val movement =
+                if (segments[index].name.contains("Repeat"))
+                    moveRepeatbyIndex(increment, index) else moveSegmentByIndex(increment, index)
+            return movement
         }
+        else {
+            return 0
+        }
+    }
+    fun moveSegmentByIndex(increment: Int = 0, index: Int): Int
+    {
+        val nextElement = segments[index + increment]
+
+        if (nextElement.name == "RepeatEnd") {
+
+            segments[index].nest -= increment
+        }
+        else if (nextElement.name == "RepeatStart"){
+            segments[index].nest += increment
+        }
+
+        val temp = segments[index]
+        segments[index] = segments[index + increment]
+        segments[index + increment] = temp
+
         return increment
     }
+
+    fun moveRepeatbyIndex (increment: Int = 0, index: Int): Int
+    {
+        var movement = increment
+        val currentElement = segments[index]
+        val nextElement = segments[index + increment]
+
+        if ((currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && currentElement.ID == nextElement.ID && movement == -1) ||
+            (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID == nextElement.ID && movement == 1) ||
+            (currentElement.name == "RepeatStart" && nextElement.name == "RepeatStart" && movement == -1) ||
+            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatEnd"&& movement == 1)){
+            // A RepeatStart can't go past its own RepeatEnd
+            // A RepeatEnd can't got past its own RepeatStart
+            // A RepeatStart can't go up past another RepeatStart - swapping of repeats like this seems like it could get messy, just edit them
+            // A RepeatEnd can't go down past another RepeatEnd
+            // Do nothing
+            movement = 0
+        }
+        else if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID != nextElement.ID){
+            //this means a repeat start has moved up and crashed into the end of another repeat
+                // if this doesn't result in the the contents of the other repeat being nested more than 2
+            //get id of above RepeatStart
+            val aboveRepeatEndIndex = index - 1
+            val aboveRepeatStartIndex = getIndexFromID(segments[aboveRepeatEndIndex].ID)
+
+            for (i in aboveRepeatStartIndex..aboveRepeatEndIndex){
+                if (segments[i].nest == 2) movement = 0
+            }
+            if (movement != 0){
+                for (i in aboveRepeatStartIndex..aboveRepeatEndIndex){
+                    segments[i].nest ++
+                }
+                movement += (aboveRepeatStartIndex - aboveRepeatEndIndex)
+            }
+                // whole repeat above should be swallowed
+            //TODO - need to implement bigger moves - move current segment up 5, then move every intervening segment down by 1
+            for (i in 0..movement){
+                val temp = segments[index-i]
+                segments[index-i] = segments[index-i + increment]
+                segments[index -i+ movement] = temp
+
+            }
+
+        }
+        else {
+
+            if (currentElement.name == "RepeatStart") {
+                segments[index + increment].nest -= increment
+            } else if (currentElement.name == "RepeatEnd") {
+                segments[index + increment].nest += increment
+            }
+            val temp = segments[index]
+            segments[index] = segments[index + movement]
+            segments[index + movement] = temp
+        }
+
+        // if moving repeat results in an element being nested more than twice, no movement
+        // if moving a repeat results in hitting another repeat, whole repeat must be moved in
+
+
+
+        return movement
+    }
+
 
     fun removeSegmentWithID (id: Int)
     {
@@ -280,6 +306,7 @@ class TrainingActivity : ComponentActivity() {
                 }
 
                 if (showRepeatDialog){
+                    Log.d("Position","selectedSegment $selectedSegment")
                     DialogUpdateRepeat(
                         onDismissRequest = { showRepeatDialog = false },
                         onConfirmation = { showRepeatDialog = false },
@@ -318,7 +345,7 @@ class TrainingActivity : ComponentActivity() {
                                 .padding(end = 80.dp)
                                 .fillMaxHeight()
                                 .combinedClickable(
-                                    onClick = { selectedSegment = if (selectedSegment==segmentIndex) -1 else segmentIndex },
+                                    onClick = { selectedSegment = if (selectedSegment == segmentIndex) -1 else segmentIndex; Log.d("Position","On click $selectedSegment")},
                                     onLongClick = { if (cardEditable) {
                                         segmentEdit = true;
                                         segmentEditID = newSegment.ID;
@@ -433,7 +460,7 @@ class TrainingActivity : ComponentActivity() {
                                                                 onClick =
                                                                     {
                                                                         if (selectedSegment > 0) {
-                                                                            selectedSegment += openTrainingPlan.moveSegmentByIndex(index =
+                                                                            selectedSegment += openTrainingPlan.move(index =
                                                                                 item.index,
                                                                                 direction = "up"
                                                                             )
@@ -458,7 +485,7 @@ class TrainingActivity : ComponentActivity() {
                                                                 onClick =
                                                                     {
                                                                         if (selectedSegment < openTrainingPlan.segments.size - 1) {
-                                                                            selectedSegment += openTrainingPlan.moveSegmentByIndex(
+                                                                            selectedSegment += openTrainingPlan.move(
                                                                                 index = item.index,
                                                                                 direction = "down"
                                                                             )
@@ -498,7 +525,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 shape = CircleShape,
                                                 contentPadding = PaddingValues(0.dp),
-                                                onClick = {showSegmentDialog=true; segmentEdit = false; selectedSegment = -1;},
+                                                onClick = {showSegmentDialog=true; segmentEdit = false},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -514,7 +541,7 @@ class TrainingActivity : ComponentActivity() {
                                                 .height(50.dp),
                                                 contentPadding = PaddingValues(0.dp),
                                                 shape = CircleShape,
-                                                onClick = {showRepeatDialog = true; segmentEdit = false; selectedSegment = -1},
+                                                onClick = {showRepeatDialog = true; segmentEdit = false},
                                                 colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                                             )
                                             {
@@ -578,12 +605,9 @@ fun DialogUpdateSegment(
     selectedSegmentID: Int = -1,
     trainingPlan: TrainingPlan
 ) {
-    Log.d("FIX", editSegmentID.toString())
-    Log.d("FIX", editSegment.toString())
+
     val segmentIndex = trainingPlan.getIndexFromID(editSegmentID)
-    Log.d("FIX","HERE")
     val workingSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
-    Log.d("FIX","HERE")
     var currentRamp by remember { mutableStateOf(value = if(editSegment) workingSegment.ramp else false) }
     val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) workingSegment.start.toString() else "")
     val currentEndResistance = rememberTextFieldState(initialText = if(editSegment) workingSegment.end.toString() else "")
@@ -662,6 +686,7 @@ fun DialogUpdateSegment(
         else{
 
             trainingPlan.addSegment(
+                position = if (selectedSegmentID!=-1) selectedSegmentID else -1,
                 name = currentSegmentType,
                 time = arrayOf(
                     currentTime.text.toString().ifEmpty { "0000" }.substring(0, currentTime.text.toString().length - 2).toInt(),
@@ -828,12 +853,12 @@ fun DialogUpdateRepeat(
     selectedSegmentID: Int = -1,
     trainingPlan: TrainingPlan
 ) {
-
     val repeatIndex = trainingPlan.getIndexFromID(editRepeatID)
     val workingSegment = trainingPlan.getSegmentFromIndex(repeatIndex)
     val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.start.toString() else "")
 
     fun updateRepeats(){
+        //TODO: consider how type testing/what to do if resistances not entered here compare to segment edit dialogue
         if (currentRepeats.text.toString() != "") {
             if (editRepeat)
                 trainingPlan.segments[repeatIndex].start = currentRepeats.text.toString().toInt()
