@@ -2,9 +2,11 @@ package com.example.controller.ui
 
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,5 +51,36 @@ fun MyButton(
         )
     ) {
         Text(text = label)
+    }
+}
+
+class AlertDefinitions (val title: String = "Alert",
+                        val text: String = "Be Alert",
+                        val confirmText: String = "OK",
+                        val dismissText: String = "cancel",
+                        val onConfirm: () -> Unit = {},
+                        val onDismiss: () -> Unit = {}) {
+    @Composable
+    fun AlertPopup(onClose: () -> Unit) {
+        AlertDialog(
+            onDismissRequest = { onClose() },
+            title = { Text(title) },
+            text = { Text(text)},
+            confirmButton = {
+                TextButton(onClick = {
+                    onConfirm()
+                    onClose()
+                })
+                { Text(confirmText) }
+            },
+            dismissButton = {
+
+                TextButton({
+                    onDismiss()
+                    onClose()
+                })
+                { Text(dismissText) }
+            }
+        )
     }
 }

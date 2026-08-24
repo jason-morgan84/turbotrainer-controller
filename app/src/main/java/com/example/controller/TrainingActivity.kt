@@ -75,6 +75,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 
 import androidx.core.graphics.ColorUtils.colorToHSL
+import com.example.controller.ui.AlertDefinitions
 
 
 fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
@@ -112,9 +113,13 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 
 class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start, var nest: Int = 0)
 
-class TrainingPlan (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
+class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
 {
-    fun saveTrainingPlan()
+    fun loadWorkout()
+    {
+        //TODO implement loading training plan
+    }
+    fun saveWorkout()
     {
         //TODO implement saving training plan
     }
@@ -356,22 +361,26 @@ class TrainingActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                val defaultTrainingPlan = remember {
-                    TrainingPlan("New Workout", mutableStateListOf()).apply {
+                val defaultWorkout = remember {
+                    Workout("New Workout", mutableStateListOf()).apply {
                         addSegment("Warm Up", arrayOf(3, 0), true, 10, 30)
                         addSegment("Interval", arrayOf(5, 0), false, 50)
                         addSegment("Cool Down", arrayOf(3, 0), true, 30, 10)
                     }
                 }
 
-                val openTrainingPlan = defaultTrainingPlan
+                val openWorkout = defaultWorkout
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var selectedSegment by remember { mutableIntStateOf(-1) }
                 var showSegmentDialog by remember { mutableStateOf(false) }
                 var showRepeatDialog by remember { mutableStateOf(false) }
                 var editNameDialog by remember { mutableStateOf(false) }
-                var showExitWarning by remember { mutableStateOf(false) }
+                var activeAlert by remember { mutableStateOf<AlertDefinitions?>(null) }
+
+                activeAlert?.AlertPopup(onClose = { activeAlert = null })
+
+
                 if (showSegmentDialog){
                     DialogUpdateSegment(
                         onDismissRequest = { showSegmentDialog = false },
@@ -379,7 +388,7 @@ class TrainingActivity : ComponentActivity() {
                         editSegment = segmentEdit,
                         editSegmentID = segmentEditID,
                         selectedSegmentID = selectedSegment,
-                        trainingPlan = openTrainingPlan
+                        workout = openWorkout
                     )
                 }
 
@@ -390,46 +399,21 @@ class TrainingActivity : ComponentActivity() {
                         editRepeat = segmentEdit,
                         editRepeatID = segmentEditID,
                         selectedSegmentID = selectedSegment,
-                        trainingPlan = openTrainingPlan
+                        workout = openWorkout
                     )
                 }
                 if (editNameDialog){
                     DialogUpdateName(
                         onDismissRequest = { editNameDialog = false },
                         onConfirmation = { editNameDialog = false },
-                        trainingPlan = openTrainingPlan
+                        workout = openWorkout
                     )
                 }
-
-                if (showExitWarning) {
-                    AlertDialog(
-                        onDismissRequest = { showExitWarning = false },
-                        title = { Text("Save Changes") },
-                        text = { Text("Do you want to save your changes before leaving?") },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                openTrainingPlan.saveTrainingPlan()
-                                showExitWarning = false
-                                finish()
-                            }) { Text("Yes") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                showExitWarning = false
-                                finish()
-                            }) { Text("No") }
-                        }
-                    )
-                }
-
-                //TODO update openTraining to whatever's chosen in previous screen
-
-
 
                 @Composable
-                fun drawSegmentCard(trainingPlan: TrainingPlan, segmentIndex: Int)
+                fun drawSegmentCard(workout: Workout, segmentIndex: Int)
                 {
-                    val newSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
+                    val newSegment = workout.getSegmentFromIndex(segmentIndex)
                     val cardColor = segmentTypes[newSegment.name]?.colour ?: ColourBackground
                     val cardHeight = segmentTypes[newSegment.name]?.height ?: 50.dp
                     val cardText = segmentTypes[newSegment.name]?.text?.invoke(newSegment) ?: "Unknown"
@@ -451,8 +435,8 @@ class TrainingActivity : ComponentActivity() {
                                 .combinedClickable(
                                     onClick = { selectedSegment = if (selectedSegment == segmentIndex) -1 else segmentIndex; Log.d("Position","On click $selectedSegment")},
                                     onLongClick = { if (cardEditable) {
-                                        segmentEdit = true;
-                                        segmentEditID = newSegment.ID;
+                                        segmentEdit = true
+                                        segmentEditID = newSegment.ID
                                         if (cardSegment) showSegmentDialog = true else showRepeatDialog = true}
                                     }),
                             colors = CardDefaults.cardColors(
@@ -487,7 +471,7 @@ class TrainingActivity : ComponentActivity() {
                                         ),
                                         contentPadding = PaddingValues(0.dp),
                                         shape = CircleShape,
-                                        onClick = { trainingPlan.removeSegmentWithIndex(segmentIndex) })
+                                        onClick = { workout.removeSegmentWithIndex(segmentIndex) })
                                     {
                                         Icon(
                                             modifier = Modifier.size(32.dp),
@@ -550,7 +534,7 @@ class TrainingActivity : ComponentActivity() {
                                                 fontSize = 24.sp,
                                                 color = adjustColour(Color.Gray, lightness = -0.1f),
                                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                                text = openTrainingPlan.name)
+                                                text = openWorkout.name)
                                             Icon(
                                                 modifier = Modifier.size(20.dp).padding(start=4.dp),
                                                 imageVector = Icons.Default.Edit,
@@ -560,7 +544,7 @@ class TrainingActivity : ComponentActivity() {
                                         }
 
                                     }
-                                    for (item in openTrainingPlan.segments.withIndex())
+                                    for (item in openWorkout.segments.withIndex())
                                         {
                                             Box(modifier = Modifier
                                                     .fillMaxWidth()
@@ -568,7 +552,7 @@ class TrainingActivity : ComponentActivity() {
                                                     .zIndex(if (item.index == selectedSegment) 5f else 0f),
                                                 contentAlignment = Alignment.CenterStart)
                                             {
-                                                drawSegmentCard(openTrainingPlan, item.index)
+                                                drawSegmentCard(openWorkout, item.index)
                                                 if (item.index == selectedSegment) {
                                                     Box(
                                                         modifier = Modifier
@@ -591,7 +575,7 @@ class TrainingActivity : ComponentActivity() {
                                                                 onClick =
                                                                     {
                                                                         if (selectedSegment > 0) {
-                                                                            selectedSegment += openTrainingPlan.move(index =
+                                                                            selectedSegment += openWorkout.move(index =
                                                                                 item.index,
                                                                                 direction = "up"
                                                                             )
@@ -615,8 +599,8 @@ class TrainingActivity : ComponentActivity() {
                                                                 contentPadding = PaddingValues(0.dp),
                                                                 onClick =
                                                                     {
-                                                                        if (selectedSegment < openTrainingPlan.segments.size - 1) {
-                                                                            selectedSegment += openTrainingPlan.move(
+                                                                        if (selectedSegment < openWorkout.segments.size - 1) {
+                                                                            selectedSegment += openWorkout.move(
                                                                                 index = item.index,
                                                                                 direction = "down"
                                                                             )
@@ -702,12 +686,25 @@ class TrainingActivity : ComponentActivity() {
                             {
                                 MyButton(
                                     onClick = {
-                                        if (openTrainingPlan.edited)
-                                        {
-                                            showExitWarning = true
+                                        if (openWorkout.edited) {
+                                            activeAlert = AlertDefinitions(
+                                                title = "Save Changes",
+                                                text = "Do you want to save your changes before leaving?",
+                                                confirmText = "Yes",
+                                                dismissText = "No",
+                                                onConfirm = {
+                                                    openWorkout.saveWorkout()
+                                                    finish()
+                                                },
+                                                onDismiss = {
+                                                    finish()
+                                                }
+                                            )
+                                        } else {
+                                            finish()
                                         }
-
                                     },
+
                                     label = "Back",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,
@@ -715,7 +712,7 @@ class TrainingActivity : ComponentActivity() {
                                     roundCorners = 12.dp
                                 )
                                 MyButton(
-                                    onClick = { openTrainingPlan.saveTrainingPlan(); finish()},
+                                    onClick = { openWorkout.saveWorkout(); finish()},
                                     label = "Save",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,
@@ -740,11 +737,11 @@ fun DialogUpdateSegment(
     editSegment: Boolean,
     editSegmentID: Int,
     selectedSegmentID: Int = -1,
-    trainingPlan: TrainingPlan
+    workout: Workout
 ) {
 
-    val segmentIndex = trainingPlan.getIndexFromID(editSegmentID)
-    val workingSegment = trainingPlan.getSegmentFromIndex(segmentIndex)
+    val segmentIndex = workout.getIndexFromID(editSegmentID)
+    val workingSegment = workout.getSegmentFromIndex(segmentIndex)
     var currentRamp by remember { mutableStateOf(value = if(editSegment) workingSegment.ramp else false) }
     val currentStartResistance = rememberTextFieldState(initialText = if (editSegment) workingSegment.start.toString() else "")
     val currentEndResistance = rememberTextFieldState(initialText = if(editSegment) workingSegment.end.toString() else "")
@@ -809,32 +806,39 @@ fun DialogUpdateSegment(
     }
 
     fun updateSegments() {
-        if (editSegment) {
-            val newTime = checkTime()
-            trainingPlan.segments[segmentIndex].name = currentSegmentType
-            trainingPlan.segments[segmentIndex].time[0] = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
-            trainingPlan.segments[segmentIndex].time[1] = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
-            trainingPlan.segments[segmentIndex].ramp = currentRamp
-            trainingPlan.segments[segmentIndex].start = currentStartResistance.text.toString().toInt()
-            trainingPlan.segments[segmentIndex].end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
-            //TODO: ADD TYPE TESTING HERE AND WHAT TO DO IF RESISTANCES NOT ENTERED
-            onConfirmation()
-        }
-        else{
+        // Inside updateSegments
+        val start = currentStartResistance.text.toString().filter { it.isDigit() }.toIntOrNull()
+        val end = currentEndResistance.text.toString().filter { it.isDigit() }.toIntOrNull()
+        val time = currentTime.text.toString().filter { it.isDigit() }.takeIf { it.isNotEmpty() }
 
-            trainingPlan.addSegment(
-                position = if (selectedSegmentID!=-1) selectedSegmentID else -1,
-                name = currentSegmentType,
-                time = arrayOf(
-                    currentTime.text.toString().ifEmpty { "0000" }.substring(0, currentTime.text.toString().length - 2).toInt(),
-                    currentTime.text.toString().ifEmpty { "0000" }.substring(currentTime.text.toString().length - 2, currentTime.text.toString().length).toInt()),
-                ramp = currentRamp,
-                start = currentStartResistance.text.toString().toInt(),
-                end = if (currentRamp) currentEndResistance.text.toString().toInt() else currentStartResistance.text.toString().toInt()
-                //TODO: ADD TYPE TESTING HERE AND WHAT TO DO IF RESISTANCES NOT ENTERED
-            )
-            onConfirmation()
+        if (start != null && time != null && (!currentRamp || end != null)) {
+            val newTime = checkTime()
+            val minutes = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
+            val seconds = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
+            val finalEnd = if (currentRamp) end!! else start
+
+            if (editSegment) {
+                workout.segments[segmentIndex].name = currentSegmentType
+                workout.segments[segmentIndex].time[0] = minutes
+                workout.segments[segmentIndex].time[1] = seconds
+                workout.segments[segmentIndex].ramp = currentRamp
+                workout.segments[segmentIndex].start = start
+                workout.segments[segmentIndex].end = finalEnd
+                onConfirmation()
+            } else {
+
+                workout.addSegment(
+                    position = if (selectedSegmentID != -1) selectedSegmentID else -1,
+                    name = currentSegmentType,
+                    time = arrayOf(minutes, seconds),
+                    ramp = currentRamp,
+                    start = start,
+                    end = finalEnd
+                )
+                onConfirmation()
+            }
         }
+        else onDismissRequest()
     }
 
 
@@ -988,20 +992,19 @@ fun DialogUpdateRepeat(
     editRepeat: Boolean,
     editRepeatID: Int,
     selectedSegmentID: Int = -1,
-    trainingPlan: TrainingPlan
+    workout: Workout
 ) {
-    val repeatIndex = trainingPlan.getIndexFromID(editRepeatID)
-    val workingSegment = trainingPlan.getSegmentFromIndex(repeatIndex)
+    val repeatIndex = workout.getIndexFromID(editRepeatID)
+    val workingSegment = workout.getSegmentFromIndex(repeatIndex)
     val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.start.toString() else "")
 
     fun updateRepeats(){
-        //TODO: consider how type testing/what to do if resistances not entered here compare to segment edit dialogue
         if (currentRepeats.text.toString() != "") {
             if (editRepeat)
-                trainingPlan.segments[repeatIndex].start = currentRepeats.text.toString().toInt()
+                workout.segments[repeatIndex].start = currentRepeats.text.toString().filter { it.isDigit() }.toInt()
             else
-                trainingPlan.addRepeat(
-                    repeats = currentRepeats.text.toString().toInt(),
+                workout.addRepeat(
+                    repeats = currentRepeats.text.toString().filter { it.isDigit() }.toInt(),
                     position = if (selectedSegmentID != -1) selectedSegmentID else -1
                 )
             onConfirmation()
@@ -1069,14 +1072,14 @@ fun DialogUpdateRepeat(
 fun DialogUpdateName(
     onDismissRequest: () -> Unit,
     onConfirmation: () -> Unit,
-    trainingPlan: TrainingPlan
+    workout: Workout
 )
 {
-    val currentName = rememberTextFieldState(initialText = trainingPlan.name)
+    val currentName = rememberTextFieldState(initialText = workout.name)
 
     fun updateName(){
         if (currentName.text.toString() != "") {
-            trainingPlan.name = currentName.text.toString()
+            workout.name = currentName.text.toString()
 
             onConfirmation()
         }
