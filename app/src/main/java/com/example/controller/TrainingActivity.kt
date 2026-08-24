@@ -110,21 +110,27 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 
 
 
-var firstLoad = true
 class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start, var nest: Int = 0)
 
-class TrainingPlan (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0)
+class TrainingPlan (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
 {
+    fun saveTrainingPlan()
+    {
+        //TODO implement saving training plan
+    }
     fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
-        segments.add(position, Segment(name, maxID, time, ramp, start, end))
+        Log.d("TEST","$position")
+        if (position == -1)
+            segments.add(Segment(name, maxID, time, ramp, start, end))
+        else
+            segments.add(position, Segment(name, maxID, time, ramp, start, end))
         maxID++
+        edited = true
     }
 
     fun addRepeat(repeats: Int, position: Int = segments.size) {
 
-
-        //TODO fix crash when adding near top or bottom of list
         var added = false
 
         var repeatStartIndex = segments.size
@@ -132,7 +138,7 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
         var maxNest = 0
 
 
-            if (segments[position].name.contains("Repeat"))
+        if (segments[position].name.contains("Repeat"))
             {
 
                 for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
@@ -172,6 +178,7 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
 
         if (added)
         {
+            Log.d("ADD","$repeatStartIndex $repeatEndIndex")
             segments.add(
                 repeatStartIndex,
                 Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats)
@@ -182,11 +189,14 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
             )
             maxID++
         }
+        edited = true
     }
     fun removeSegmentWithIndex(index: Int)
     {
-        if (segmentTypes[segments[index].name]?.segment == true)
+        if (segmentTypes[segments[index].name]?.segment == true) {
             segments.removeAt(index)
+            edited = true
+        }
         else {
             val repeatEndIndex = getIndexFromID(segments[index].ID, index + 1)
 
@@ -196,7 +206,9 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
             }
             segments.removeAt(index)
             segments.removeAt(repeatEndIndex - 1)
+            edited = true
         }
+
 
     }
     fun move(id: Int = 0, direction: String, index: Int = getIndexFromID(id)): Int
@@ -209,11 +221,13 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
             val movement =
                 if (segments[index].name.contains("Repeat"))
                     moveRepeatbyIndex(increment, index) else moveSegmentByIndex(increment, index)
+            edited = true
             return movement
         }
         else {
             return 0
         }
+
     }
     fun moveSegmentByIndex(increment: Int = 0, index: Int): Int
     {
@@ -230,6 +244,7 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
         val temp = segments[index]
         segments[index] = segments[index + increment]
         segments[index + increment] = temp
+        edited = true
 
         return increment
     }
@@ -299,7 +314,9 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
 
             segments.add(addIndex, segments[index])
             segments.removeAt(removeIndex)
+            edited = true
             return movement
+
         }
         else
             return 0
@@ -311,6 +328,7 @@ class TrainingPlan (var name: String, val segments: MutableList<Segment>, var ma
     {
         val index = getIndexFromID(id)
         if (index != -1) segments.removeAt(index)
+        edited = true
     }
     fun getSegmentFromIndex(index: Int): Segment
     {
@@ -353,6 +371,7 @@ class TrainingActivity : ComponentActivity() {
                 var showSegmentDialog by remember { mutableStateOf(false) }
                 var showRepeatDialog by remember { mutableStateOf(false) }
                 var editNameDialog by remember { mutableStateOf(false) }
+                var showExitWarning by remember { mutableStateOf(false) }
                 if (showSegmentDialog){
                     DialogUpdateSegment(
                         onDismissRequest = { showSegmentDialog = false },
@@ -379,6 +398,27 @@ class TrainingActivity : ComponentActivity() {
                         onDismissRequest = { editNameDialog = false },
                         onConfirmation = { editNameDialog = false },
                         trainingPlan = openTrainingPlan
+                    )
+                }
+
+                if (showExitWarning) {
+                    AlertDialog(
+                        onDismissRequest = { showExitWarning = false },
+                        title = { Text("Save Changes") },
+                        text = { Text("Do you want to save your changes before leaving?") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                openTrainingPlan.saveTrainingPlan()
+                                showExitWarning = false
+                                finish()
+                            }) { Text("Yes") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                showExitWarning = false
+                                finish()
+                            }) { Text("No") }
+                        }
                     )
                 }
 
@@ -661,7 +701,13 @@ class TrainingActivity : ComponentActivity() {
                             )
                             {
                                 MyButton(
-                                    onClick = { finish(); firstLoad = true },
+                                    onClick = {
+                                        if (openTrainingPlan.edited)
+                                        {
+                                            showExitWarning = true
+                                        }
+
+                                    },
                                     label = "Back",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,
@@ -669,7 +715,7 @@ class TrainingActivity : ComponentActivity() {
                                     roundCorners = 12.dp
                                 )
                                 MyButton(
-                                    onClick = { finish(); firstLoad = true },
+                                    onClick = { openTrainingPlan.saveTrainingPlan(); finish()},
                                     label = "Save",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,
@@ -1092,4 +1138,8 @@ Dialog(onDismissRequest = { onDismissRequest() }) {
     }
 
 }
+
+
 }
+
+
