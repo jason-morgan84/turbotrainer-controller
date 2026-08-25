@@ -92,9 +92,9 @@ fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightn
 class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val moveable: Boolean = true, val editable: Boolean = true, val segment: Boolean = true)
 
 val standardSegmentText: (Segment) -> String = { segment ->
-    "${segment.name}\n" +
-            (if (segment.time[0] != 0) "${segment.time[0]}m " else "") +
-            "${segment.time[1]}s @ ${segment.start}" +
+    "${segment.type}\n" +
+            (if (segment.time > 60) "${segment.time/60}m " else "") +
+            "${segment.time%60}s @ ${segment.start}" +
             (if (segment.ramp) "-${segment.end}%" else "%")
 }
 
@@ -105,13 +105,13 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
     "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
     "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
     "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
-    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.start}" }, segment = false),
+    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.repeat}" }, segment = false),
     "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
 )
 
 
 
-class Segment(var name: String, var ID: Int, var time: Array<Int>, var ramp: Boolean, var start: Int, var end: Int = start, var nest: Int = 0)
+class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, var start: Int, var end: Int = start, var repeat: Int = 0, var nest: Int = 0)
 
 class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
 {
@@ -123,13 +123,12 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     {
         //TODO implement saving training plan
     }
-    fun addSegment(name: String, time: Array<Int>, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
+    fun addSegment(type: String, time: Int, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
-        Log.d("TEST","$position")
         if (position == -1)
-            segments.add(Segment(name, maxID, time, ramp, start, end))
+            segments.add(Segment(type, maxID, time, ramp, start, end))
         else
-            segments.add(position, Segment(name, maxID, time, ramp, start, end))
+            segments.add(position, Segment(type, maxID, time, ramp, start, end))
         maxID++
         edited = true
     }
@@ -143,7 +142,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         var maxNest = 0
 
 
-        if (segments[position].name.contains("Repeat"))
+        if (segments[position].type.contains("Repeat"))
             {
 
                 for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
@@ -152,10 +151,10 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
                 }
                 if (maxNest < 2){
                     repeatStartIndex =
-                        if (segments[position].name == "RepeatStart") position else
+                        if (segments[position].type == "RepeatStart") position else
                             getIndexFromID(segments[position].ID)
 
-                    repeatEndIndex = if (segments[position].name == "RepeatStart")
+                    repeatEndIndex = if (segments[position].type == "RepeatStart")
                         getIndexFromID(segments[position].ID,position+1) else
                             position
 
@@ -186,11 +185,11 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
             Log.d("ADD","$repeatStartIndex $repeatEndIndex")
             segments.add(
                 repeatStartIndex,
-                Segment("RepeatStart", maxID, arrayOf(0, 0), false, repeats)
+                Segment("RepeatStart", maxID, 0, false, 0, repeat = repeats)
             )
             segments.add(
                 repeatEndIndex,
-                Segment("RepeatEnd", maxID, arrayOf(0, 0), false, repeats)
+                Segment("RepeatEnd", maxID, 0, false, 0, repeat = repeats)
             )
             maxID++
         }
@@ -198,7 +197,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     }
     fun removeSegmentWithIndex(index: Int)
     {
-        if (segmentTypes[segments[index].name]?.segment == true) {
+        if (segmentTypes[segments[index].type]?.segment == true) {
             segments.removeAt(index)
             edited = true
         }
@@ -224,7 +223,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
                 if ((index + increments.getValue(direction)) in segments.indices)
                     increments.getValue(direction) else 0
             val movement =
-                if (segments[index].name.contains("Repeat"))
+                if (segments[index].type.contains("Repeat"))
                     moveRepeatbyIndex(increment, index) else moveSegmentByIndex(increment, index)
             edited = true
             return movement
@@ -238,11 +237,11 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     {
         val nextElement = segments[index + increment]
 
-        if (nextElement.name == "RepeatEnd") {
+        if (nextElement.type == "RepeatEnd") {
 
             segments[index].nest -= increment
         }
-        else if (nextElement.name == "RepeatStart"){
+        else if (nextElement.type == "RepeatStart"){
             segments[index].nest += increment
         }
 
@@ -264,11 +263,11 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         var addIndex = index + increment
         var removeIndex = index
 
-        if ((currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && currentElement.ID == nextElement.ID && movement == -1) ||
-            (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID == nextElement.ID && movement == 1) ||
-            (currentElement.name == "RepeatStart" && nextElement.name == "RepeatStart" && movement == -1) ||
-            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatStart" && movement == -1) ||
-            (currentElement.name == "RepeatEnd" && nextElement.name == "RepeatEnd")){
+        if ((currentElement.type == "RepeatEnd" && nextElement.type == "RepeatStart" && currentElement.ID == nextElement.ID && movement == -1) ||
+            (currentElement.type == "RepeatStart" && nextElement.type == "RepeatEnd" && currentElement.ID == nextElement.ID && movement == 1) ||
+            (currentElement.type == "RepeatStart" && nextElement.type == "RepeatStart" && movement == -1) ||
+            (currentElement.type == "RepeatEnd" && nextElement.type == "RepeatStart" && movement == -1) ||
+            (currentElement.type == "RepeatEnd" && nextElement.type == "RepeatEnd")){
             // A RepeatStart can't go past its own RepeatEnd
             // A RepeatEnd can't got past its own RepeatStart
             // A RepeatStart can't go up past another RepeatStart - swapping of repeats like this seems like it could get messy, just edit them
@@ -276,7 +275,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
             // Do nothing
             allowMovement = false
         }
-        else if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatEnd" && currentElement.ID != nextElement.ID){
+        else if (currentElement.type == "RepeatStart" && nextElement.type == "RepeatEnd" && currentElement.ID != nextElement.ID){
             // movement must be up (movement down dealt with above, results in no move)
             val aboveRepeatEndIndex = index - 1
             val aboveRepeatStartIndex = getIndexFromID(segments[aboveRepeatEndIndex].ID)
@@ -294,7 +293,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
                 movement = -(index - aboveRepeatStartIndex)
             }
         }
-        else if (currentElement.name == "RepeatStart" && nextElement.name == "RepeatStart" && currentElement.ID != nextElement.ID){
+        else if (currentElement.type == "RepeatStart" && nextElement.type == "RepeatStart" && currentElement.ID != nextElement.ID){
             // movement must be down (movement up dealt with above, results in no move)
             val belowRepeatStartIndex = index + 1
             val belowRepeatEndIndex = getIndexFromID(segments[belowRepeatStartIndex].ID,index + 2)
@@ -307,9 +306,9 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
             movement = belowRepeatEndIndex - belowRepeatStartIndex + 1
         }
         else {
-            if (currentElement.name == "RepeatStart") {
+            if (currentElement.type == "RepeatStart") {
                 segments[index + increment].nest -= increment
-            } else if (currentElement.name == "RepeatEnd") {
+            } else if (currentElement.type == "RepeatEnd") {
                 segments[index + increment].nest += increment
             }
             addIndex = if (movement > 0) index + movement + 1 else index + movement
@@ -337,14 +336,14 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     }
     fun getSegmentFromIndex(index: Int): Segment
     {
-        return segments.getOrNull(index) ?: Segment("Empty", -1, arrayOf(0, 0), false, 0)
+        return segments.getOrNull(index) ?: Segment("Empty", -1, 0, false, 0)
     }
     fun getSegmentFromID(id: Int): Segment {
         for (n in segments.indices) {
             if (segments[n].ID == id)
                 return segments[n]
         }
-        return Segment("Error", id, arrayOf(0, 0), false, 0)
+        return Segment("Error", id, 0, false, 0)
     }
     fun getIndexFromID(id: Int, start: Int = 0): Int {
         if (segments.isEmpty()) return -1
@@ -363,9 +362,10 @@ class EditWorkout : ComponentActivity() {
             ControllerTheme {
                 val defaultWorkout = remember {
                     Workout("New Workout", mutableStateListOf()).apply {
-                        addSegment("Warm Up", arrayOf(3, 0), true, 10, 30)
-                        addSegment("Interval", arrayOf(5, 0), false, 50)
-                        addSegment("Cool Down", arrayOf(3, 0), true, 30, 10)
+                        addSegment("Warm Up", 180, true, 10, 30)
+                        addSegment("Interval", 300, false, 50)
+                        addSegment("Cool Down", 180, true, 30, 10)
+                        edited = false
                     }
                 }
 
@@ -415,11 +415,11 @@ class EditWorkout : ComponentActivity() {
                 fun drawSegmentCard(workout: Workout, segmentIndex: Int)
                 {
                     val newSegment = workout.getSegmentFromIndex(segmentIndex)
-                    val cardColor = segmentTypes[newSegment.name]?.colour ?: ColourBackground
-                    val cardHeight = segmentTypes[newSegment.name]?.height ?: 50.dp
-                    val cardText = segmentTypes[newSegment.name]?.text?.invoke(newSegment) ?: "Unknown"
-                    val cardEditable = segmentTypes[newSegment.name]?.editable ?: true
-                    val cardSegment = segmentTypes[newSegment.name]?.segment ?: true
+                    val cardColor = segmentTypes[newSegment.type]?.colour ?: ColourBackground
+                    val cardHeight = segmentTypes[newSegment.type]?.height ?: 50.dp
+                    val cardText = segmentTypes[newSegment.type]?.text?.invoke(newSegment) ?: "Unknown"
+                    val cardEditable = segmentTypes[newSegment.type]?.editable ?: true
+                    val cardSegment = segmentTypes[newSegment.type]?.segment ?: true
                     Box(
                         modifier = Modifier
                             .layoutId(newSegment.ID.toString())
@@ -434,14 +434,23 @@ class EditWorkout : ComponentActivity() {
                                 .padding(end = 80.dp)
                                 .fillMaxHeight()
                                 .combinedClickable(
-                                    onClick = { selectedSegment = if (selectedSegment == segmentIndex) -1 else segmentIndex; Log.d("Position","On click $selectedSegment")},
-                                    onLongClick = { if (cardEditable) {
-                                        segmentEdit = true
-                                        segmentEditID = newSegment.ID
-                                        if (cardSegment) showSegmentDialog = true else showRepeatDialog = true}
+                                    onClick = {
+                                        selectedSegment =
+                                            if (selectedSegment == segmentIndex) -1 else segmentIndex; Log.d(
+                                        "Position",
+                                        "On click $selectedSegment"
+                                    )
+                                    },
+                                    onLongClick = {
+                                        if (cardEditable) {
+                                            segmentEdit = true
+                                            segmentEditID = newSegment.ID
+                                            if (cardSegment) showSegmentDialog =
+                                                true else showRepeatDialog = true
+                                        }
                                     }),
                             colors = CardDefaults.cardColors(
-                                containerColor = if (newSegment.name.contains("Repeat")) adjustColour( cardColor, lightness = 0.1f - (newSegment.nest * 0.1f))
+                                containerColor = if (newSegment.type.contains("Repeat")) adjustColour( cardColor, lightness = 0.1f - (newSegment.nest * 0.1f))
                                 else adjustColour( cardColor, lightness = if (selectedSegment == segmentIndex) 0.05f else 0.1f)
                             ),
                            shape = RoundedCornerShape(8.dp),
@@ -537,7 +546,9 @@ class EditWorkout : ComponentActivity() {
                                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                                 text = openWorkout.name)
                                             Icon(
-                                                modifier = Modifier.size(20.dp).padding(start=4.dp),
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .padding(start = 4.dp),
                                                 imageVector = Icons.Default.Edit,
                                                 contentDescription = "Edit Name",
                                                 tint = Color.Gray
@@ -548,9 +559,9 @@ class EditWorkout : ComponentActivity() {
                                     for (item in openWorkout.segments.withIndex())
                                         {
                                             Box(modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(if (item.value.name=="RepeatEnd") 25.dp else 50.dp)
-                                                    .zIndex(if (item.index == selectedSegment) 5f else 0f),
+                                                .fillMaxWidth()
+                                                .height(if (item.value.type == "RepeatEnd") 25.dp else 50.dp)
+                                                .zIndex(if (item.index == selectedSegment) 5f else 0f),
                                                 contentAlignment = Alignment.CenterStart)
                                             {
                                                 drawSegmentCard(openWorkout, item.index)
@@ -558,7 +569,10 @@ class EditWorkout : ComponentActivity() {
                                                     Box(
                                                         modifier = Modifier
                                                             .width(60.dp)
-                                                            .wrapContentHeight(align = Alignment.CenterVertically, unbounded = true)
+                                                            .wrapContentHeight(
+                                                                align = Alignment.CenterVertically,
+                                                                unbounded = true
+                                                            )
                                                             .padding(horizontal = 8.dp)
                                                             ,
                                                     )
@@ -570,7 +584,9 @@ class EditWorkout : ComponentActivity() {
                                                         )
                                                         {
                                                             Button(
-                                                                modifier = Modifier.size(40.dp).padding(bottom = 4.dp),
+                                                                modifier = Modifier
+                                                                    .size(40.dp)
+                                                                    .padding(bottom = 4.dp),
                                                                 shape = CircleShape,
                                                                 contentPadding = PaddingValues(0.dp),
                                                                 onClick =
@@ -595,7 +611,9 @@ class EditWorkout : ComponentActivity() {
                                                                 )
                                                             }
                                                             Button(
-                                                                modifier = Modifier.size(40.dp).padding(top = 4.dp),
+                                                                modifier = Modifier
+                                                                    .size(40.dp)
+                                                                    .padding(top = 4.dp),
                                                                 shape = CircleShape,
                                                                 contentPadding = PaddingValues(0.dp),
                                                                 onClick =
@@ -688,6 +706,7 @@ class EditWorkout : ComponentActivity() {
                                 MyButton(
                                     //TODO this is popping up when it shoudln't
                                     onClick = {
+                                        Log.d("TEST", "openworkout ${ openWorkout.edited }")
                                         if (openWorkout.edited) {
                                             activeAlert = AlertDefinitions(
                                                 title = "Save Changes",
@@ -751,8 +770,8 @@ fun DialogUpdateSegment(
     val currentTime = rememberTextFieldState(initialText =
         if (editSegment)
         {
-            var minutes = workingSegment.time[0].toString().filter { it.isDigit() }
-            var seconds = workingSegment.time[1].toString().filter { it.isDigit() }
+            var minutes = (workingSegment.time/60).toString().filter { it.isDigit() }
+            var seconds = (workingSegment.time%60).toString().filter { it.isDigit() }
             while (minutes.length <2)
             {
                 minutes = "0$minutes"
@@ -765,7 +784,7 @@ fun DialogUpdateSegment(
         }
         else { "0000" }
     )
-    var currentSegmentType by remember { mutableStateOf(value = if (editSegment) workingSegment.name else "Interval") }
+    var currentSegmentType by remember { mutableStateOf(value = if (editSegment) workingSegment.type else "Interval") }
     val timeInputTransformation = InputTransformation {
         //val digits = asCharSequence().filter { it.isDigit() }
     }
@@ -786,7 +805,7 @@ fun DialogUpdateSegment(
     }
 
     fun checkTime(): CharSequence {
-
+        //TODO simplify checkTime with new time in seconds
         var stringTime = currentTime.text.toString().ifEmpty { "0000" }
         stringTime = stringTime.filter { it.isDigit() }
 
@@ -821,9 +840,8 @@ fun DialogUpdateSegment(
             val finalEnd = if (currentRamp) end!! else start
 
             if (editSegment) {
-                workout.segments[segmentIndex].name = currentSegmentType
-                workout.segments[segmentIndex].time[0] = minutes
-                workout.segments[segmentIndex].time[1] = seconds
+                workout.segments[segmentIndex].type = currentSegmentType
+                workout.segments[segmentIndex].time = minutes*60 + seconds
                 workout.segments[segmentIndex].ramp = currentRamp
                 workout.segments[segmentIndex].start = start
                 workout.segments[segmentIndex].end = finalEnd
@@ -832,8 +850,8 @@ fun DialogUpdateSegment(
 
                 workout.addSegment(
                     position = if (selectedSegmentID != -1) selectedSegmentID else -1,
-                    name = currentSegmentType,
-                    time = arrayOf(minutes, seconds),
+                    type = currentSegmentType,
+                    time = minutes * 60 + seconds,
                     ramp = currentRamp,
                     start = start,
                     end = finalEnd
@@ -1009,12 +1027,12 @@ fun DialogUpdateRepeat(
 ) {
     val repeatIndex = workout.getIndexFromID(editRepeatID)
     val workingSegment = workout.getSegmentFromIndex(repeatIndex)
-    val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.start.toString() else "")
+    val currentRepeats = rememberTextFieldState(initialText = if (editRepeat) workingSegment.repeat.toString() else "")
 
     fun updateRepeats(){
         if (currentRepeats.text.toString() != "") {
             if (editRepeat)
-                workout.segments[repeatIndex].start = currentRepeats.text.toString().filter { it.isDigit() }.toInt()
+                workout.segments[repeatIndex].repeat = currentRepeats.text.toString().filter { it.isDigit() }.toInt()
             else
                 workout.addRepeat(
                     repeats = currentRepeats.text.toString().filter { it.isDigit() }.toInt(),
