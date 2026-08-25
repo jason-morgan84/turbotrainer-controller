@@ -35,8 +35,12 @@
         </activity>
 
         <activity
-            android:name=".TrainingActivity"
-            android:label="Training"
+            android:name=".EditWorkout"
+            android:label="Edit Workout"
+            android:theme="@style/Theme.Controller" />
+        <activity
+            android:name=".Workouts"
+            android:label="Workouts"
             android:theme="@style/Theme.Controller" />
     </application>
 

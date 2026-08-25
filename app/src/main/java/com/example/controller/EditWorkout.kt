@@ -355,7 +355,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         return -1
     }
 }
-class TrainingActivity : ComponentActivity() {
+class EditWorkout : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -385,6 +385,7 @@ class TrainingActivity : ComponentActivity() {
                     DialogUpdateSegment(
                         onDismissRequest = { showSegmentDialog = false },
                         onConfirmation = { showSegmentDialog = false },
+                        onShowAlert = { activeAlert = it },
                         editSegment = segmentEdit,
                         editSegmentID = segmentEditID,
                         selectedSegmentID = selectedSegment,
@@ -685,6 +686,7 @@ class TrainingActivity : ComponentActivity() {
                             )
                             {
                                 MyButton(
+                                    //TODO this is popping up when it shoudln't
                                     onClick = {
                                         if (openWorkout.edited) {
                                             activeAlert = AlertDefinitions(
@@ -737,7 +739,8 @@ fun DialogUpdateSegment(
     editSegment: Boolean,
     editSegmentID: Int,
     selectedSegmentID: Int = -1,
-    workout: Workout
+    workout: Workout,
+    onShowAlert: (AlertDefinitions) -> Unit
 ) {
 
     val segmentIndex = workout.getIndexFromID(editSegmentID)
@@ -811,7 +814,7 @@ fun DialogUpdateSegment(
         val end = currentEndResistance.text.toString().filter { it.isDigit() }.toIntOrNull()
         val time = currentTime.text.toString().filter { it.isDigit() }.takeIf { it.isNotEmpty() }
 
-        if (start != null && time != null && (!currentRamp || end != null)) {
+        if (start != null && time != "0000" && (!currentRamp || end != null)) {
             val newTime = checkTime()
             val minutes = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
             val seconds = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
@@ -837,14 +840,25 @@ fun DialogUpdateSegment(
                 )
                 onConfirmation()
             }
+        } else {
+            onShowAlert(
+                    AlertDefinitions(
+                        title = "Missing Data",
+                        text = "You haven't entered " +
+                                (if (start == null || (currentRamp && end == null)) {
+                                    "resistance " + (if (time == "0000") "or time " else "")
+                                } else "time ") + "for the segment.",
+                        confirmText = "Ok",
+                        dismissText = "",
+                        onConfirm = {},
+                        onDismiss = {}
+                    )
+                )
         }
-        else onDismissRequest()
     }
 
 
     Dialog(onDismissRequest = { onDismissRequest() }) {
-        // Draw a rectangle shape with rounded corners inside the dialog
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -858,7 +872,6 @@ fun DialogUpdateSegment(
                 Text(
                     text = if (editSegment) "Edit Segment" else "New Segment",
                     fontSize = 20.sp,
-                    //color = Color.Black,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     modifier = Modifier.padding(16.dp),
                 )

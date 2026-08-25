@@ -54,7 +54,7 @@ fun MyButton(
     }
 }
 
-class AlertDefinitions (val title: String = "Alert",
+data class AlertDefinitions (val title: String = "Alert",
                         val text: String = "Be Alert",
                         val confirmText: String = "OK",
                         val dismissText: String = "cancel",
@@ -73,13 +73,15 @@ class AlertDefinitions (val title: String = "Alert",
                 })
                 { Text(confirmText) }
             },
-            dismissButton = {
 
-                TextButton({
-                    onDismiss()
-                    onClose()
-                })
-                { Text(dismissText) }
+            dismissButton = {
+                if (dismissText != "") {
+                    TextButton(onClick = {
+                        onDismiss()
+                        onClose()
+                    })
+                    { Text(dismissText) }
+                }
             }
         )
     }

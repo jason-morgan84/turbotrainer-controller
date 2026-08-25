@@ -842,7 +842,7 @@ class MainActivity : ComponentActivity() {
 
                             MyButton(
                                 onClick = { 
-                                    context.startActivity(Intent(context, TrainingActivity::class.java))
+                                    context.startActivity(Intent(context, Workouts::class.java))
                                 },
                                 label = "Training",
                                 backgroundColor = ColourButtons,
