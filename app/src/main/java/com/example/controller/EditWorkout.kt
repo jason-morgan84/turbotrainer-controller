@@ -786,7 +786,9 @@ fun DialogUpdateSegment(
     )
     var currentSegmentType by remember { mutableStateOf(value = if (editSegment) workingSegment.type else "Interval") }
     val timeInputTransformation = InputTransformation {
-        //val digits = asCharSequence().filter { it.isDigit() }
+        if (asCharSequence().any { !it.isDigit() }) {
+            revertAllChanges()
+        }
     }
 
     val timeOutputTransformation = OutputTransformation {
@@ -804,39 +806,15 @@ fun DialogUpdateSegment(
         append("s")
     }
 
-    fun checkTime(): CharSequence {
-        //TODO simplify checkTime with new time in seconds
-        var stringTime = currentTime.text.toString().ifEmpty { "0000" }
-        stringTime = stringTime.filter { it.isDigit() }
-
-        while (stringTime.length < 4) {
-            stringTime = "0$stringTime"
-        }
-
-        var minutes = stringTime.substring(0, stringTime.length - 2)
-        var seconds = stringTime.substring(stringTime.length - 2,stringTime.length)
-
-        if (seconds.toInt() >= 60){
-            seconds = (seconds.toInt() - 60).toString()
-            minutes = (minutes.toInt() + 1).toString()
-        }
-        while (seconds.length < 2) {
-            seconds = "0$seconds"
-        }
-        return minutes + seconds
-
-    }
-
     fun updateSegments() {
         // Inside updateSegments
         val start = currentStartResistance.text.toString().filter { it.isDigit() }.toIntOrNull()
         val end = currentEndResistance.text.toString().filter { it.isDigit() }.toIntOrNull()
-        val time = currentTime.text.toString().filter { it.isDigit() }.takeIf { it.isNotEmpty() }
+        val time = currentTime.text.toString().filter { it.isDigit() }.takeIf { it.isNotEmpty() }!!
 
         if (start != null && time != "0000" && (!currentRamp || end != null)) {
-            val newTime = checkTime()
-            val minutes = newTime.ifEmpty { "0000" }.substring(0, newTime.length - 2).toInt()
-            val seconds = newTime.ifEmpty { "0000" }.substring(newTime.length - 2, newTime.length).toInt()
+            val minutes = time.substring(0, time.length - 2).toInt()
+            val seconds = time.substring(time.length - 2, time.length).toInt()
             val finalEnd = if (currentRamp) end!! else start
 
             if (editSegment) {
@@ -851,7 +829,7 @@ fun DialogUpdateSegment(
                 workout.addSegment(
                     position = if (selectedSegmentID != -1) selectedSegmentID else -1,
                     type = currentSegmentType,
-                    time = minutes * 60 + seconds,
+                    time = minutes*60 + seconds,
                     ramp = currentRamp,
                     start = start,
                     end = finalEnd
@@ -928,21 +906,11 @@ fun DialogUpdateSegment(
                     lineLimits = TextFieldLineLimits.SingleLine,
                     inputTransformation = timeInputTransformation,
                     outputTransformation = timeOutputTransformation,
-                    onKeyboardAction = {
-                        val newText = checkTime().toString()
-                        currentTime.edit {replace(0, length, newText) }
-                    },
+                    onKeyboardAction = {},
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
-                        .onFocusChanged {
-                            if (!it.isFocused) {
-                                // This code runs when focus is lost
-                                val newText = checkTime().toString()
-                                currentTime.edit { replace(0, length, newText) }
-                            }
-                        }
-                            ,
+                        .onFocusChanged {},
                     label = { Text("Time") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
                     )
