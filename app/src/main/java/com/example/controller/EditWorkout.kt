@@ -76,6 +76,9 @@ import androidx.compose.ui.zIndex
 
 import androidx.core.graphics.ColorUtils.colorToHSL
 import com.example.controller.ui.AlertDefinitions
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import java.io.File
 
 
 fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
@@ -111,17 +114,28 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 
 
 
+@Serializable
 class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, var start: Int, var end: Int = start, var repeat: Int = 0, var nest: Int = 0)
 
+@Serializable
 class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
 {
     fun loadWorkout()
     {
         //TODO implement loading training plan
     }
-    fun saveWorkout()
+    fun saveWorkout(context: android.content.Context)
     {
-        //TODO implement saving training plan
+        val json = Json { prettyPrint = true }
+        val workoutJson = json.encodeToString(this)
+        val workoutDir = File(context.filesDir, "workouts")
+        if (!workoutDir.exists()) {
+            workoutDir.mkdirs()
+        }
+        val file = File(workoutDir, "${this.name}.json")
+        file.writeText(workoutJson)
+        edited = false
+        Log.i("Save", "Workout saved to ${file.absolutePath}")
     }
     fun addSegment(type: String, time: Int, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
     {
@@ -410,6 +424,8 @@ class EditWorkout : ComponentActivity() {
                         workout = openWorkout
                     )
                 }
+
+                val context = androidx.compose.ui.platform.LocalContext.current
 
                 @Composable
                 fun drawSegmentCard(workout: Workout, segmentIndex: Int)
@@ -714,7 +730,7 @@ class EditWorkout : ComponentActivity() {
                                                 confirmText = "Yes",
                                                 dismissText = "No",
                                                 onConfirm = {
-                                                    openWorkout.saveWorkout()
+                                                    openWorkout.saveWorkout(context)
                                                     finish()
                                                 },
                                                 onDismiss = {
@@ -733,7 +749,7 @@ class EditWorkout : ComponentActivity() {
                                     roundCorners = 12.dp
                                 )
                                 MyButton(
-                                    onClick = { openWorkout.saveWorkout(); finish()},
+                                    onClick = { openWorkout.saveWorkout(context); finish()},
                                     label = "Save",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,
