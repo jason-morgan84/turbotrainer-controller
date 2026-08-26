@@ -117,6 +117,8 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 @Serializable
 class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, var start: Int, var end: Int = start, var repeat: Int = 0, var nest: Int = 0)
 
+
+
 @Serializable
 class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
 {
@@ -720,7 +722,6 @@ class EditWorkout : ComponentActivity() {
                             )
                             {
                                 MyButton(
-                                    //TODO this is popping up when it shoudln't
                                     onClick = {
                                         Log.d("TEST", "openworkout ${ openWorkout.edited }")
                                         if (openWorkout.edited) {
