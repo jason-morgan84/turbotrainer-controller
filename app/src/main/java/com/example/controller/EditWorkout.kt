@@ -96,7 +96,7 @@ class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment)
 
 val standardSegmentText: (Segment) -> String = { segment ->
     "${segment.type}\n" +
-            (if (segment.time > 60) "${segment.time/60}m " else "") +
+            (if (segment.time >= 60) "${segment.time/60}m " else "") +
             "${segment.time%60}s @ ${segment.start}" +
             (if (segment.ramp) "-${segment.end}%" else "%")
 }
@@ -129,22 +129,40 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     fun saveWorkout(context: android.content.Context)
     {
         val json = Json { prettyPrint = true }
-        val workoutJson = json.encodeToString(this)
-        val workoutDir = File(context.filesDir, "workouts")
-        if (!workoutDir.exists()) {
-            workoutDir.mkdirs()
+        val file = File(context.filesDir, "all_workouts.json")
+        
+        // 1. Load existing workouts list
+        val workouts = if (file.exists()) {
+            try {
+                json.decodeFromString<MutableList<Workout>>(file.readText())
+            } catch (e: Exception) {
+                mutableListOf()
+            }
+        } else {
+            mutableListOf()
         }
-        val file = File(workoutDir, "${this.name}.json")
-        file.writeText(workoutJson)
+
+        // 2. Update existing workout or add as new
+        // Note: Using 'name' as the unique identifier for now
+        val index = workouts.indexOfFirst { it.name == this.name }
+        if (index != -1) {
+            workouts[index] = this
+        } else {
+            workouts.add(this)
+        }
+
+        // 3. Save the entire list back to the single file
+        file.writeText(json.encodeToString(workouts))
+        
         edited = false
-        Log.i("Save", "Workout saved to ${file.absolutePath}")
     }
-    fun addSegment(type: String, time: Int, ramp: Boolean, start: Int, end: Int = start, position: Int = segments.size)
+    fun addSegment(type: String, time: Int, ramp: Boolean, start: Int, end: Int = start, position: Int = -1)
     {
         if (position == -1)
             segments.add(Segment(type, maxID, time, ramp, start, end))
-        else
-            segments.add(position, Segment(type, maxID, time, ramp, start, end))
+        else {
+            segments.add(position+1, Segment(type, maxID, time, ramp, start, end,nest=segments[position].nest))
+        }
         maxID++
         edited = true
     }
@@ -153,13 +171,22 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
 
         var added = false
 
-        var repeatStartIndex = segments.size
-        var repeatEndIndex = segments.size+1
+        var repeatStartIndex = segments.size + 1
+        var repeatEndIndex = segments.size + 1
         var maxNest = 0
 
+        Log.d("REPEATSegment","ADDING REPEAT")
 
-        if (segments[position].type.contains("Repeat"))
+        Log.d("REPEATSegment", "$position")
+        if (position == -1)
+        {
+            repeatStartIndex = segments.size
+            repeatEndIndex = segments.size + 1
+            added = true
+        }
+        else if (segments[position].type.contains("Repeat"))
             {
+                Log.d("REPEATSegment","JERE")
 
                 for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
                 {
@@ -198,17 +225,20 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
 
         if (added)
         {
-            Log.d("ADD","$repeatStartIndex $repeatEndIndex")
+            Log.d("REPEATSegment","$repeatStartIndex $repeatEndIndex")
             segments.add(
                 repeatStartIndex,
                 Segment("RepeatStart", maxID, 0, false, 0, repeat = repeats)
             )
+            Log.d("REPEATSegment", "start added")
             segments.add(
                 repeatEndIndex,
                 Segment("RepeatEnd", maxID, 0, false, 0, repeat = repeats)
             )
+            Log.d("REPEATSegment", "finish added")
             maxID++
         }
+        Log.d("REPEATSegment","LEAVING")
         edited = true
     }
     fun removeSegmentWithIndex(index: Int)
