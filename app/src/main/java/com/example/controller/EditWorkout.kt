@@ -92,7 +92,7 @@ fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightn
     return Color.hsl(newHue,newSaturation, newLightness)
 }
 
-class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val moveable: Boolean = true, val editable: Boolean = true, val segment: Boolean = true)
+class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val editable: Boolean = true, val segment: Boolean = true)
 
 val standardSegmentText: (Segment) -> String = { segment ->
     "${segment.type}\n" +
@@ -120,12 +120,9 @@ class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, v
 
 
 @Serializable
-class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false, val new: Boolean = true)
+class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false)
 {
-    fun loadWorkout()
-    {
-        //TODO implement loading training plan
-    }
+
     fun saveWorkout(context: android.content.Context)
     {
         val json = Json { prettyPrint = true }
@@ -372,25 +369,11 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
             return 0
 
     }
-
-
-    fun removeSegmentWithID (id: Int)
-    {
-        val index = getIndexFromID(id)
-        if (index != -1) segments.removeAt(index)
-        edited = true
-    }
     fun getSegmentFromIndex(index: Int): Segment
     {
         return segments.getOrNull(index) ?: Segment("Empty", -1, 0, false, 0)
     }
-    fun getSegmentFromID(id: Int): Segment {
-        for (n in segments.indices) {
-            if (segments[n].ID == id)
-                return segments[n]
-        }
-        return Segment("Error", id, 0, false, 0)
-    }
+
     fun getIndexFromID(id: Int, start: Int = 0): Int {
         if (segments.isEmpty()) return -1
         for (n in start until segments.size) {
@@ -406,16 +389,13 @@ class EditWorkout : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                val defaultWorkout = remember {
-                    Workout("New Workout", mutableStateListOf()).apply {
-                        addSegment("Warm Up", 180, true, 10, 30)
-                        addSegment("Interval", 300, false, 50)
-                        addSegment("Cool Down", 180, true, 30, 10)
-                        edited = false
-                    }
-                }
 
-                val openWorkout = defaultWorkout
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: "New Workout"
+
+
+
+
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var selectedSegment by remember { mutableIntStateOf(-1) }
@@ -427,37 +407,23 @@ class EditWorkout : ComponentActivity() {
                 activeAlert?.AlertPopup(onClose = { activeAlert = null })
 
 
-                if (showSegmentDialog){
-                    DialogUpdateSegment(
-                        onDismissRequest = { showSegmentDialog = false },
-                        onConfirmation = { showSegmentDialog = false },
-                        onShowAlert = { activeAlert = it },
-                        editSegment = segmentEdit,
-                        editSegmentID = segmentEditID,
-                        selectedSegmentID = selectedSegment,
-                        workout = openWorkout
-                    )
-                }
 
-                if (showRepeatDialog){
-                    DialogUpdateRepeat(
-                        onDismissRequest = { showRepeatDialog = false },
-                        onConfirmation = { showRepeatDialog = false },
-                        editRepeat = segmentEdit,
-                        editRepeatID = segmentEditID,
-                        selectedSegmentID = selectedSegment,
-                        workout = openWorkout
-                    )
-                }
-                if (editNameDialog){
-                    DialogUpdateName(
-                        onDismissRequest = { editNameDialog = false },
-                        onConfirmation = { editNameDialog = false },
-                        workout = openWorkout
-                    )
-                }
 
-                val context = androidx.compose.ui.platform.LocalContext.current
+                fun loadWorkout(loadName: String, context: android.content.Context,): Workout
+                {
+                    val file = File(context.filesDir, "all_workouts.json")
+                    val workoutList = mutableListOf<Workout>()
+
+
+                    val json = Json { ignoreUnknownKeys = true }
+                    val workouts = json.decodeFromString<List<Workout>>(file.readText())
+                    workoutList.addAll(workouts.map { it })
+                    for (item in workoutList)
+                        if (item.name == loadName)
+                            return item
+
+                    return Workout("loadName",mutableListOf<Segment>())
+                }
 
                 @Composable
                 fun drawSegmentCard(workout: Workout, segmentIndex: Int)
@@ -544,8 +510,56 @@ class EditWorkout : ComponentActivity() {
                     }
                 }
 
+                val openWorkout = remember { if(workoutName == "New Workout")
+                {
+                    Workout("New Workout", mutableStateListOf()).apply {
+                        addSegment("Warm Up", 180, true, 10, 30)
+                        addSegment("Interval", 300, false, 50)
+                        addSegment("Cool Down", 180, true, 30, 10)
+                        edited = false}
+                }
+                    else
+                {
+                    val loaded = loadWorkout(workoutName, context)
+                    Workout(
+                        name = loaded.name,
+                        segments = mutableStateListOf<Segment>().apply { addAll(loaded.segments) },
+                        maxID = loaded.maxID,
+                        edited = loaded.edited
+                    )
+                }
+                }
+                openWorkout.edited = false
 
+                if (showSegmentDialog){
+                    DialogUpdateSegment(
+                        onDismissRequest = { showSegmentDialog = false },
+                        onConfirmation = { showSegmentDialog = false },
+                        onShowAlert = { activeAlert = it },
+                        editSegment = segmentEdit,
+                        editSegmentID = segmentEditID,
+                        selectedSegmentID = selectedSegment,
+                        workout = openWorkout
+                    )
+                }
 
+                if (showRepeatDialog){
+                    DialogUpdateRepeat(
+                        onDismissRequest = { showRepeatDialog = false },
+                        onConfirmation = { showRepeatDialog = false },
+                        editRepeat = segmentEdit,
+                        editRepeatID = segmentEditID,
+                        selectedSegmentID = selectedSegment,
+                        workout = openWorkout
+                    )
+                }
+                if (editNameDialog){
+                    DialogUpdateName(
+                        onDismissRequest = { editNameDialog = false },
+                        onConfirmation = { editNameDialog = false },
+                        workout = openWorkout
+                    )
+                }
 
 
                 Scaffold(
@@ -753,7 +767,6 @@ class EditWorkout : ComponentActivity() {
                             {
                                 MyButton(
                                     onClick = {
-                                        Log.d("TEST", "openworkout ${ openWorkout.edited }")
                                         if (openWorkout.edited) {
                                             activeAlert = AlertDefinitions(
                                                 title = "Save Changes",
