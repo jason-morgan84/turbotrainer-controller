@@ -53,16 +53,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.RectangleShape
 import com.example.controller.ui.AlertDefinitions
 import com.example.controller.ui.theme.ColourPlus10
-class Workouts : ComponentActivity() {
+class WorkoutsList : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-                WorkoutsScreen(
+                WorkoutsListScreen(
                     onBack = { finish() },
                     onEdit = { workoutName ->
                         val intent = Intent(this, EditWorkout::class.java)
+                        intent.putExtra("WORKOUT_NAME", workoutName)
+                        startActivity(intent)
+                    },
+                    onStart = { workoutName ->
+                        val intent = Intent(this, Workouts::class.java)
                         intent.putExtra("WORKOUT_NAME", workoutName)
                         startActivity(intent)
                     }
@@ -106,7 +111,7 @@ fun loadWorkouts (context: android.content.Context, workoutList: MutableList<Str
     }
 }
 @Composable
-fun WorkoutsScreen(onBack: () -> Unit, onEdit: (String) -> Unit) {
+fun WorkoutsListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (String) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val workoutList = remember {mutableStateListOf<String>()}
     var selectedWorkout by remember { mutableStateOf("") }
@@ -279,7 +284,7 @@ fun WorkoutsScreen(onBack: () -> Unit, onEdit: (String) -> Unit) {
                 )
 
                 MyButton(
-                    onClick = {},
+                    onClick = { if (selectedWorkout != "") onStart(selectedWorkout) },
                     label = "Start",
                     backgroundColor = ColourButtons,
                     textColor = Color.Black,

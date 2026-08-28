@@ -668,8 +668,14 @@ class MainActivity : ComponentActivity() {
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Label(value = actualPower.toString().plus(" W"), fontSize = 32.sp)
-                                    Label(value = actualCadence.toString().plus(" rpm"), fontSize = 32.sp)
+                                    Label(
+                                        value = actualPower.toString().plus(" W"),
+                                        fontSize = 32.sp
+                                    )
+                                    Label(
+                                        value = actualCadence.toString().plus(" rpm"),
+                                        fontSize = 32.sp
+                                    )
 
                                 }
                                 Row(
@@ -679,12 +685,19 @@ class MainActivity : ComponentActivity() {
                                     horizontalArrangement = Arrangement.SpaceEvenly,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Label(value = averagePower.toString().plus(" W"), fontSize = 18.sp)
                                     Label(
-                                        value = (round(actualDistance / 10) / 100).toString().plus(" km"),
+                                        value = averagePower.toString().plus(" W"),
                                         fontSize = 18.sp
                                     )
-                                    Label(value = actualEnergy.toString().plus(" kcal"), fontSize = 18.sp)
+                                    Label(
+                                        value = (round(actualDistance / 10) / 100).toString()
+                                            .plus(" km"),
+                                        fontSize = 18.sp
+                                    )
+                                    Label(
+                                        value = actualEnergy.toString().plus(" kcal"),
+                                        fontSize = 18.sp
+                                    )
 
                                 }
                             }
@@ -735,13 +748,19 @@ class MainActivity : ComponentActivity() {
                                     .size(200.dp)
                                     .clip(CircleShape)
                                     .clickable
-                                    { if(isConnected) { isPaused = !isPaused } }
+                                    {
+                                        if (isConnected) {
+                                            isPaused = !isPaused
+                                        }
+                                    }
                                     .drawBehind {
 
                                         val minRadius = 175.toFloat()
                                         val maxRadius = 225.toFloat()
-                                        val radius = minRadius + (maxRadius - minRadius) * (resistance / 100.0).toFloat()
-                                        val alpha = (if (actualCadence > 0) pulseAlpha else 1f) * maxAlpha
+                                        val radius =
+                                            minRadius + (maxRadius - minRadius) * (resistance / 100.0).toFloat()
+                                        val alpha =
+                                            (if (actualCadence > 0) pulseAlpha else 1f) * maxAlpha
                                         val colour = gradient[resistance].copy(alpha = alpha)
 
                                         drawCircle(
@@ -842,7 +861,7 @@ class MainActivity : ComponentActivity() {
 
                             MyButton(
                                 onClick = { 
-                                    context.startActivity(Intent(context, Workouts::class.java))
+                                    context.startActivity(Intent(context, WorkoutsList::class.java))
                                 },
                                 label = "Training",
                                 backgroundColor = ColourButtons,

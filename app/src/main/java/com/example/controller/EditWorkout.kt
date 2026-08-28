@@ -115,6 +115,7 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
 
 
 @Serializable
+@Suppress("PropertyName")
 class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, var start: Int, var end: Int = start, var repeat: Int = 0, var nest: Int = 0)
 
 
@@ -132,7 +133,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         val workouts = if (file.exists()) {
             try {
                 json.decodeFromString<MutableList<Workout>>(file.readText())
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 mutableListOf()
             }
         } else {
@@ -409,7 +410,7 @@ class EditWorkout : ComponentActivity() {
 
 
 
-                fun loadWorkout(loadName: String, context: android.content.Context,): Workout
+                fun loadWorkout(loadName: String, context: android.content.Context): Workout
                 {
                     val file = File(context.filesDir, "all_workouts.json")
                     val workoutList = mutableListOf<Workout>()
@@ -422,7 +423,7 @@ class EditWorkout : ComponentActivity() {
                         if (item.name == loadName)
                             return item
 
-                    return Workout("loadName",mutableListOf<Segment>())
+                    return Workout("loadName",mutableListOf())
                 }
 
                 @Composable
