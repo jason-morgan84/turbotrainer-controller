@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,6 +31,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.delete
 import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -393,10 +395,6 @@ class EditWorkout : ComponentActivity() {
 
                 val context = androidx.compose.ui.platform.LocalContext.current
                 val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: "New Workout"
-
-
-
-
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var selectedSegment by remember { mutableIntStateOf(-1) }
@@ -526,11 +524,10 @@ class EditWorkout : ComponentActivity() {
                         name = loaded.name,
                         segments = mutableStateListOf<Segment>().apply { addAll(loaded.segments) },
                         maxID = loaded.maxID,
-                        edited = loaded.edited
+                        edited = false
                     )
                 }
                 }
-                openWorkout.edited = false
 
                 if (showSegmentDialog){
                     DialogUpdateSegment(
@@ -587,10 +584,14 @@ class EditWorkout : ComponentActivity() {
 
                             ) {
 
-                                Column(modifier = Modifier.fillMaxWidth(),
+                                Column(modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(rememberScrollState()),
                                     verticalArrangement = Arrangement
                                         .spacedBy(5.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally)
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                )
+
                                 {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
