@@ -41,9 +41,7 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         var repeatEndIndex = segments.size + 1
         var maxNest = 0
 
-        Log.d("REPEATSegment","ADDING REPEAT")
 
-        Log.d("REPEATSegment", "$position")
         if (position == -1)
         {
             repeatStartIndex = segments.size
@@ -52,7 +50,6 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         }
         else if (segments[position].type.contains("Repeat"))
         {
-            Log.d("REPEATSegment","JERE")
 
             for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
             {
@@ -247,6 +244,37 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
         }
         return -1
     }
+
+    fun flattenWorkout(start: Int = 0, end:Int = segments.size): MutableList<Segment>
+    {
+        val flattenedWorkout = mutableListOf<Segment>()
+        var currentIndex = start
+        while (currentIndex < end)
+        {
+            if(segments[currentIndex].type == "RepeatStart")
+            {
+                val start = currentIndex + 1
+                val end = getIndexFromID(segments[currentIndex].ID,currentIndex+1)
+                val repeats = segments[currentIndex].repeat
+
+                for (i in 0 until repeats) {
+                    flattenedWorkout.addAll(flattenWorkout(start,end))
+                }
+
+
+                currentIndex = end + 1
+
+            }
+            else
+            {
+                flattenedWorkout.add(segments[currentIndex])
+                currentIndex++
+            }
+        }
+
+        return flattenedWorkout
+    }
+
 }
 
 class WorkoutList (val workouts: MutableList<Workout>)

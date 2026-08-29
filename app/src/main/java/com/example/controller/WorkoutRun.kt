@@ -1,22 +1,34 @@
 package com.example.controller
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +42,10 @@ import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourPlus10
 import com.example.controller.ui.theme.ControllerTheme
 import kotlin.math.round
+import com.example.controller.ui.Workout
+import com.example.controller.ui.Segment
+import com.example.controller.ui.WorkoutList
+import com.example.controller.ui.theme.adjustColour
 
 class Workouts : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,8 +65,23 @@ class Workouts : ComponentActivity() {
 }
 
 @Composable
-fun WorkoutsScreen(workoutName: String, onBack: () -> Unit, onFinish: () -> Unit) {
+fun WorkoutsScreen(workoutName: String,
+                   onBack: () -> Unit,
+                   onFinish: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val workoutList = remember { WorkoutList(mutableStateListOf()) }
+    val currentSegment by remember { mutableIntStateOf(0) }
 
+    LaunchedEffect(workoutName) {
+        workoutList.loadWorkoutList(context)
+    }
+
+    val flattenedWorkout = remember(workoutName, workoutList.workouts.size) {
+        val workout = workoutList.workouts.find { it.name == workoutName }
+        workout?.flattenWorkout() ?: mutableListOf()
+    }
+
+    //flattenedWorkout.forEach { segment -> Log.d("FLATTEN",segment.type) }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = ColourBackground
@@ -132,12 +163,47 @@ fun WorkoutsScreen(workoutName: String, onBack: () -> Unit, onFinish: () -> Unit
                     .align(Alignment.CenterHorizontally)
             )
 
+
             // Blank space in the middle
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             )
+            {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp))
+                {
+                    Log.d("FLATTEN","drawing cards")
+                    if (flattenedWorkout.isNotEmpty()) {
+                        val displayEnd = minOf(currentSegment + 3, flattenedWorkout.size)
+                        for (i in currentSegment until displayEnd)
+                        {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = (40 + (i - currentSegment) * 10).dp)
+                                    .height((50 - (i - currentSegment) * 5).dp),
+                                //TODO get proper colours
+                                //TODO get proper text
+                                colors = CardDefaults.cardColors(
+                                    containerColor = adjustColour( ColourPlus10, lightness = ((i - currentSegment) * 0.1f))),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            {
+                                Text(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    text = flattenedWorkout[i].type,
+                                    fontSize = (20-(i - currentSegment) * 2).sp,
+                                    color = adjustColour(Color.Black, lightness = ((i - currentSegment) * 0.2f)),
+                                    textAlign = //TODO vertically centred on left
+
+                                    //TODO adjust text colour
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // Buttons at the bottom
             Row(
