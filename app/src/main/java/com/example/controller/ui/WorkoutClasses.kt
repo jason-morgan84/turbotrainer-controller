@@ -254,12 +254,25 @@ class WorkoutList (val workouts: MutableList<Workout>)
 
     fun getIndex(name: String): Int
     {
+       // workouts.forEachIndexed { index, workout -> if (workout.name == name) return index }
         return workouts.indexOfFirst { it.name == name }
+
     }
+
+    fun getAllNames(): MutableList<String>
+    {
+        val nameList = mutableListOf<String>()
+        for (workout in workouts)
+        {
+            nameList.add(workout.name)
+        }
+        return nameList
+    }
+
 //TODO - deal with name changes
     fun loadWorkoutList( context: android.content.Context, fileName: String = "all_workouts.json",)
     {
-        //workouts.clear()
+        workouts.clear()
         val file = File(context.filesDir, fileName)
         if (file.exists()) {
             try {
@@ -267,29 +280,34 @@ class WorkoutList (val workouts: MutableList<Workout>)
                 val loadedWorkouts = json.decodeFromString<List<Workout>>(file.readText())
                 workouts.addAll(loadedWorkouts)
             } catch (e: Exception) {
-                Log.e("Load", "Error loading workouts", e)
             }
         }
-        Log.d("CLASSCHANGES","No. Workouts: ${workouts.size}")
     }
     fun updateWorkout (updatedWorkout: Workout) {
+
         val index = getIndex(updatedWorkout.name)
         updatedWorkout.edited = false
-        Log.d("CLASSCHANGES","$index")
-        Log.d("CLASSCHANGES","${workouts.size}")
+        Log.d("TESTINGHERE", "returned index is $index")
         if (index != -1)
-        {Log.d("CLASSCHANGES","Updating Workout $index")
+
+        {
+            Log.d("TESTINGHERE", "Updating Workout ${updatedWorkout.name}")
             workouts[index] = updatedWorkout}
         else
-        {   Log.d("CLASSCHANGES", "adding workout")
-            workouts.add(updatedWorkout)}
-        Log.d("CLASSCHANGES","${workouts.size}")
+        {
+            Log.d("TESTINGHERE","New workout: ${updatedWorkout.name}")
+            workouts.add(updatedWorkout)
+        }
+
+        Log.d("TESTINGHERE", "Workouts is ${workouts.size} big")
+
     }
 
-    fun saveWorkoutList(context: android.content.Context)
+    fun saveWorkoutList(context: android.content.Context,fileName: String = "all_workouts.json")
     {
+        Log.d("TESTINGHERE","Saving ${workouts.size} workouts")
         val json = Json { prettyPrint = true }
-        val file = File(context.filesDir, "all_workouts.json")
+        val file = File(context.filesDir, fileName)
         file.writeText(json.encodeToString(workouts))
     }
     fun deleteWorkout(name: String)

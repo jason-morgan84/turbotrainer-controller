@@ -110,7 +110,7 @@ class WorkoutEdit : ComponentActivity() {
         setContent {
             ControllerTheme {
                 val context = androidx.compose.ui.platform.LocalContext.current
-                val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: "New Workout"
+                val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: ""
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var selectedSegment by remember { mutableIntStateOf(-1) }
@@ -208,8 +208,9 @@ class WorkoutEdit : ComponentActivity() {
                         }
                     }
                 }
-                Log.d("CLASSCHANGES", workoutName)
-                val openWorkout = remember { if(workoutName == "New Workout")
+                val openWorkout = remember {
+                    workouts.loadWorkoutList(context)
+                    if(workoutName == "")
                 {
                     Workout("New Workout", mutableStateListOf()).apply {
                         addSegment("Warm Up", 180, true, 10, 30)
@@ -219,7 +220,7 @@ class WorkoutEdit : ComponentActivity() {
                 }
                     else
                 {
-                    workouts.loadWorkoutList(context)
+
                     workouts.workouts[workouts.getIndex(workoutName)]
                 }
                 }
@@ -496,9 +497,27 @@ class WorkoutEdit : ComponentActivity() {
                                 )
                                 MyButton(
                                     onClick = {
+
+                                        if (openWorkout.name in workouts.getAllNames())
+                                        {
+                                            activeAlert = AlertDefinitions(
+                                                title = "Overwrite workout?",
+                                                text = "A workout with that name already exists. Do you want to overwrite?",
+                                                confirmText = "Yes",
+                                                dismissText = "No",
+                                                onConfirm = {
+                                                    workouts.updateWorkout(openWorkout)
+                                                    workouts.saveWorkoutList(context)
+                                                    finish()
+                                                },
+                                                onDismiss = {
+                                                }
+                                            )
+                                        }
+                                        else{
                                         workouts.updateWorkout(openWorkout);
                                         workouts.saveWorkoutList(context);
-                                        finish()},
+                                        finish()}},
                                     label = "Save",
                                     backgroundColor = ColourButtons,
                                     textColor = Color.Black,

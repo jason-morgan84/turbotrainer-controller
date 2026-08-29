@@ -63,7 +63,6 @@ import com.example.controller.ui.theme.adjustColour
 class WorkoutListView : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("CLASSCHANGES", "GOT HERE")
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
@@ -88,7 +87,6 @@ class WorkoutListView : ComponentActivity() {
 
 @Composable
 fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (String) -> Unit) {
-    Log.d("CLASSCHANGES", "GOT HERE")
     val context = androidx.compose.ui.platform.LocalContext.current
     val workouts by remember {
         mutableStateOf(WorkoutList(mutableStateListOf<Workout>()))
@@ -237,7 +235,7 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
                             .height(50.dp),
                             shape = CircleShape,
                             contentPadding = PaddingValues(0.dp),
-                            onClick = {onEdit("New Workout")},
+                            onClick = {onEdit("")},
                             colors = ButtonDefaults.buttonColors(containerColor = ColourButtons, contentColor = Color.Black)
                         )
                         {
