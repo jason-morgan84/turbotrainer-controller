@@ -97,6 +97,8 @@ import com.example.controller.ui.theme.ColourMinus1
 import com.example.controller.ui.theme.ColourMinus5
 import com.example.controller.ui.theme.ColourMinus10
 import com.example.controller.ui.theme.ColourButtons
+import com.example.controller.ui.theme.gradientColours
+import com.example.controller.ui.theme.gradientSteps
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.round
@@ -158,9 +160,6 @@ class MainActivity : ComponentActivity() {
                 var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
                 var isConnected by remember { mutableStateOf(false) }
                 var isPaused by remember { mutableStateOf(false) }
-
-                val gradientSteps = arrayOf(0,50,100)
-                val gradientColours = arrayOf(ColourMinus10, ColourMiddle, ColourPlus10)
 
                 val gradient = remember(gradientColours) {
                     createGradient(gradientSteps, gradientColours)

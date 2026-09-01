@@ -8,19 +8,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,8 +44,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +64,13 @@ import com.example.controller.ui.WorkoutList
 
 import com.example.controller.ui.segmentTypes
 import com.example.controller.ui.slopedRoundedBackground
+import com.example.controller.ui.theme.ColourMinus1
+import com.example.controller.ui.theme.ColourMinus10
+import com.example.controller.ui.theme.ColourMinus5
+import com.example.controller.ui.theme.ColourPlus1
+import com.example.controller.ui.theme.ColourPlus5
+import com.example.controller.ui.theme.gradientColours
+import com.example.controller.ui.theme.gradientSteps
 import kotlinx.coroutines.delay
 
 class Workouts : ComponentActivity() {
@@ -79,7 +99,8 @@ fun WorkoutsScreen(workoutName: String,
     // val currentSegment by remember { mutableIntStateOf(0) }
 
     var runningWorkout by remember {mutableStateOf(false)}
-
+    val gradient = remember(gradientColours) {
+        createGradient(gradientSteps, gradientColours)}
     LaunchedEffect(workoutName) {
         workoutList.loadWorkoutList(context)
 
@@ -231,7 +252,7 @@ fun WorkoutsScreen(workoutName: String,
             // Next three cards
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    //.weight(1f)
                     .fillMaxWidth()
             )
             {
@@ -278,14 +299,92 @@ fun WorkoutsScreen(workoutName: String,
                 modifier = Modifier
                     //.weight(1f)
                     .fillMaxWidth()
-                    .fillMaxHeight(.2f)
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = 10.dp)
             )
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+                //.align(Alignment.Center),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp,Alignment.CenterHorizontally)
+            ) {
+                val width = 40.dp
+                val hPadding = 0.dp
+                Button(
+                    onClick = { updateResistance(-10)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourMinus10
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "10")}
+
+                Button(
+                    onClick = { updateResistance(-5)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourMinus5
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "5")}
+                Button(
+                    onClick = { updateResistance(-1)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourMinus1
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "1")}
+                Text("50%",
+                    fontSize = 24.sp)
+//todo re-add bluetooth
+                Button(
+                    //onClick = { updateResistance(-1, bluetoothGatt)},
+                    onClick = { updateResistance(1)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourPlus1
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "1")}
+                Button(
+                    //onClick = { updateResistance(-1, bluetoothGatt)},
+                    onClick = { updateResistance(5)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourPlus5
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "5")}
+                Button(
+                    //onClick = { updateResistance(-1, bluetoothGatt)},
+                    onClick = { updateResistance(10)},
+                    modifier = Modifier.width(width).padding(horizontal = hPadding),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(0.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColourPlus10
+                        //contentColor = textColor ?: ButtonDefaults.buttonColors().contentColor
+                    )
+                ) {Text(text = "10")}
+
+
+            }
 
             //Segment Graph
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    //.weight(1f)
                     .fillMaxSize()
                     .padding(horizontal = 20.dp)
             )
