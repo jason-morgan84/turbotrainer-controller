@@ -630,9 +630,62 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = ColourBackground
+                    containerColor = ColourBackground,
+                    bottomBar = {
+                        Row(
+                        modifier = Modifier
+                            .padding(bottom = 32.dp)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MyButton(
+                            onClick = { isConnected = true },
+                            label = "History",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+
+                        MyButton(
+                            onClick = {
+                                if (isConnected) {
+                                    disconnectDevice()
+                                    processTelemetry(context)
+                                } else {
+                                    // 1: Check permissions for location services
+                                    val allGranted = permissions.all {
+                                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                                    }
+                                    if (allGranted) {
+                                        startScan()
+                                        startdatetime = LocalDateTime.now().format(formatter)
+                                    } else {
+                                        showLocationRationale = true
+                                    }
+                                }
+                            },
+                            label = if (isConnected) "Stop" else "Start",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+
+                        MyButton(
+                            onClick = {
+                                context.startActivity(Intent(context, WorkoutListView::class.java))
+                            },
+                            label = "Training",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+                    }}
                 ) { innerPadding ->
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding)
@@ -641,7 +694,6 @@ class MainActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .align(Alignment.TopCenter)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -716,7 +768,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         Column(
-                            modifier = Modifier.align(Alignment.Center),
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
@@ -816,60 +868,7 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-                        Row(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 32.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            MyButton(
-                                onClick = { isConnected = true },
-                                label = "History",
-                                backgroundColor = ColourButtons,
-                                textColor = Color.Black,
-                                width = 120.dp,
-                                roundCorners = 12.dp
-                            )
 
-                            MyButton(
-                                onClick = {
-                                    if (isConnected) {
-                                        disconnectDevice()
-                                        processTelemetry(context)
-                                    } else {
-                                        // 1: Check permissions for location services
-                                        val allGranted = permissions.all {
-                                            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                                        }
-                                        if (allGranted) {
-                                            startScan()
-                                            startdatetime = LocalDateTime.now().format(formatter)
-                                        } else {
-                                            showLocationRationale = true
-                                        }
-                                    }
-                                },
-                                label = if (isConnected) "Stop" else "Start",
-                                backgroundColor = ColourButtons,
-                                textColor = Color.Black,
-                                width = 120.dp,
-                                roundCorners = 12.dp
-                            )
-
-                            MyButton(
-                                onClick = {
-                                    Log.d("CLASSCHANGES", "BUTTON PRESSED");
-                                    context.startActivity(Intent(context, WorkoutListView::class.java))
-                                },
-                                label = "Training",
-                                backgroundColor = ColourButtons,
-                                textColor = Color.Black,
-                                width = 120.dp,
-                                roundCorners = 12.dp
-                            )
-                        }
                     }
                 }
             }

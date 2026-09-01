@@ -110,7 +110,32 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = ColourBackground
+        containerColor = ColourBackground,
+        bottomBar ={Row(
+            modifier = Modifier
+                .padding(bottom = 32.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MyButton(
+                onClick = onBack,
+                label = "Back",
+                backgroundColor = ColourButtons,
+                textColor = Color.Black,
+                width = 120.dp,
+                roundCorners = 12.dp
+            )
+
+            MyButton(
+                onClick = { if (selectedWorkout != "") onStart(selectedWorkout) },
+                label = "Start",
+                backgroundColor = ColourButtons,
+                textColor = Color.Black,
+                width = 120.dp,
+                roundCorners = 12.dp
+            )
+        }}
     ) { innerPadding ->
         var activeAlert by remember { mutableStateOf<AlertDefinitions?>(null) }
 
@@ -140,7 +165,7 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
             )
             Column(modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.9f)
+                .fillMaxHeight()
                 .verticalScroll(rememberScrollState()),
 
                 //verticalArrangement = Arrangement.Top,
@@ -252,31 +277,7 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
             }
 
             // Buttons at the bottom
-            Row(
-                modifier = Modifier
-                    .padding(bottom = 32.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MyButton(
-                    onClick = onBack,
-                    label = "Back",
-                    backgroundColor = ColourButtons,
-                    textColor = Color.Black,
-                    width = 120.dp,
-                    roundCorners = 12.dp
-                )
 
-                MyButton(
-                    onClick = { if (selectedWorkout != "") onStart(selectedWorkout) },
-                    label = "Start",
-                    backgroundColor = ColourButtons,
-                    textColor = Color.Black,
-                    width = 120.dp,
-                    roundCorners = 12.dp
-                )
-            }
         }
     }
 }

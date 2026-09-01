@@ -247,7 +247,76 @@ class WorkoutEdit : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = ColourBackground
+                    containerColor = ColourBackground,
+                    bottomBar = {
+                        Row(
+                        modifier = Modifier
+                            .padding(bottom = 32.dp)
+                            .background(color = ColourBackground)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    )
+                    {
+                        MyButton(
+                            onClick = {
+                                if (openWorkout.edited) {
+                                    activeAlert = AlertDefinitions(
+                                        title = "Save Changes",
+                                        text = "Do you want to save your changes before leaving?",
+                                        confirmText = "Yes",
+                                        dismissText = "No",
+                                        onConfirm = {
+                                            workouts.updateWorkout(openWorkout)
+                                            workouts.saveWorkoutList(context)
+                                            finish()
+                                        },
+                                        onDismiss = {
+                                            finish()
+                                        }
+                                    )
+                                } else {
+                                    finish()
+                                }
+                            },
+
+                            label = "Back",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+                        MyButton(
+                            onClick = {
+
+                                if (openWorkout.name in workouts.getAllNames())
+                                {
+                                    activeAlert = AlertDefinitions(
+                                        title = "Overwrite workout?",
+                                        text = "A workout with that name already exists. Do you want to overwrite?",
+                                        confirmText = "Yes",
+                                        dismissText = "No",
+                                        onConfirm = {
+                                            workouts.updateWorkout(openWorkout)
+                                            workouts.saveWorkoutList(context)
+                                            finish()
+                                        },
+                                        onDismiss = {
+                                        }
+                                    )
+                                }
+                                else{
+                                    workouts.updateWorkout(openWorkout);
+                                    workouts.saveWorkoutList(context);
+                                    finish()}},
+                            label = "Save",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+                    }
+                    }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -266,7 +335,7 @@ class WorkoutEdit : ComponentActivity() {
 
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight(0.9f)
+                                    .fillMaxHeight()
                                     .fillMaxWidth()
                                     .background(color = ColourBackground)
                                     .padding(),
@@ -446,74 +515,7 @@ class WorkoutEdit : ComponentActivity() {
 
 
                                 }
-                            Row(
-                                modifier = Modifier
-                                    .padding(bottom = 32.dp)
-                                    .background(color = ColourBackground)
-                                    .fillMaxHeight(1f)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            )
-                            {
-                                MyButton(
-                                    onClick = {
-                                        if (openWorkout.edited) {
-                                            activeAlert = AlertDefinitions(
-                                                title = "Save Changes",
-                                                text = "Do you want to save your changes before leaving?",
-                                                confirmText = "Yes",
-                                                dismissText = "No",
-                                                onConfirm = {
-                                                    workouts.updateWorkout(openWorkout)
-                                                    workouts.saveWorkoutList(context)
-                                                    finish()
-                                                },
-                                                onDismiss = {
-                                                    finish()
-                                                }
-                                            )
-                                        } else {
-                                            finish()
-                                        }
-                                    },
 
-                                    label = "Back",
-                                    backgroundColor = ColourButtons,
-                                    textColor = Color.Black,
-                                    width = 120.dp,
-                                    roundCorners = 12.dp
-                                )
-                                MyButton(
-                                    onClick = {
-
-                                        if (openWorkout.name in workouts.getAllNames())
-                                        {
-                                            activeAlert = AlertDefinitions(
-                                                title = "Overwrite workout?",
-                                                text = "A workout with that name already exists. Do you want to overwrite?",
-                                                confirmText = "Yes",
-                                                dismissText = "No",
-                                                onConfirm = {
-                                                    workouts.updateWorkout(openWorkout)
-                                                    workouts.saveWorkoutList(context)
-                                                    finish()
-                                                },
-                                                onDismiss = {
-                                                }
-                                            )
-                                        }
-                                        else{
-                                        workouts.updateWorkout(openWorkout);
-                                        workouts.saveWorkoutList(context);
-                                        finish()}},
-                                    label = "Save",
-                                    backgroundColor = ColourButtons,
-                                    textColor = Color.Black,
-                                    width = 120.dp,
-                                    roundCorners = 12.dp
-                                )
-                            }
                         }
                     }
                 }
