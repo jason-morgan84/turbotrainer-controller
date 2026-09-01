@@ -82,24 +82,8 @@ import com.example.controller.ui.theme.ColourMiddle
 import com.example.controller.ui.theme.ColourMinus10
 import com.example.controller.ui.theme.ColourPlus10
 import com.example.controller.ui.theme.adjustColour
-
-const val nestSizeReduction: Int = 20
-
-val standardSegmentText: (Segment) -> String = { segment ->
-    "${segment.type}\n" +
-            (if (segment.time >= 60) "${segment.time/60}m " else "") +
-            "${segment.time%60}s @ ${segment.start}" +
-            (if (segment.ramp) "-${segment.end}%" else "%")
-}
-
-val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
-    "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
-    "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
-    "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
-    "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
-    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.repeat}" }, segment = false),
-    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
-)
+import com.example.controller.ui.segmentTypes
+import com.example.controller.ui.nestSizeReduction
 
 
 
@@ -221,7 +205,12 @@ class WorkoutEdit : ComponentActivity() {
                     else
                 {
 
-                    workouts.workouts[workouts.getIndex(workoutName)]
+                    val loaded = workouts.workouts[workouts.getIndex(workoutName)]
+                    Workout(
+                        name = loaded.name,
+                        segments = mutableStateListOf<Segment>().apply { addAll(loaded.segments) },
+                        maxID = loaded.maxID,
+                        edited = loaded.edited)
                 }
                 }
 

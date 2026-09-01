@@ -4,6 +4,12 @@ import android.util.Log
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.example.controller.ui.theme.ColourButtons
+import com.example.controller.ui.theme.ColourMiddle
+import com.example.controller.ui.theme.ColourMinus10
+import com.example.controller.ui.theme.ColourPlus10
+import com.example.controller.ui.theme.adjustColour
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -16,9 +22,26 @@ class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, v
 
 class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val editable: Boolean = true, val segment: Boolean = true)
 
+const val nestSizeReduction: Int = 20
+
+val standardSegmentText: (Segment) -> String = { segment ->
+    "${segment.type}\n" +
+            (if (segment.time >= 60) "${segment.time/60}m " else "") +
+            "${segment.time%60}s @ ${segment.start}" +
+            (if (segment.ramp) "-${segment.end}%" else "%")
+}
+
+val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
+    "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
+    "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
+    "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
+    "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
+    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.repeat}" }, segment = false),
+    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
+)
 
 
-//TODO what to do if workout name already in use - pop up dialog
+
 @Serializable
 class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false)
 {
@@ -102,9 +125,11 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
     }
     fun removeSegmentWithIndex(index: Int, segment: Boolean = true)
     {
+        Log.d("DELETING", "$index from segments of length ${segments.size}")
         if (segment) {
             segments.removeAt(index)
             edited = true
+            Log.d("DELETING", "DELETING SEGMENT LEAVING ${segments.size}")
         }
         else {
             val repeatEndIndex = getIndexFromID(segments[index].ID, index + 1)
