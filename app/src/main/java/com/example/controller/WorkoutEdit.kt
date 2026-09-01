@@ -55,8 +55,7 @@ import com.example.controller.ui.MyButton
 import com.example.controller.ui.theme.ControllerTheme
 import com.example.controller.ui.theme.ColourBackground
 import com.example.controller.ui.theme.ColourButtons
-import com.example.controller.ui.theme.ColourMiddle
-import com.example.controller.ui.theme.ColourPlus10
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -67,336 +66,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
 import androidx.compose.ui.window.Dialog
-import com.example.controller.ui.theme.ColourMinus10
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
-
-import androidx.core.graphics.ColorUtils.colorToHSL
 import com.example.controller.ui.AlertDefinitions
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.io.File
-
-
-fun adjustColour (colour: Color, hue: Float = 0f, saturation: Float = 0f, lightness: Float = 0f): Color {
-    val hsl = FloatArray(3)
-    colorToHSL(colour.toArgb(), hsl)
-
-    val newHue = (hsl[0] + hue).coerceIn(0.0f, 360.0f)
-    val newSaturation = (hsl[1] + saturation).coerceIn(0.0f, 1.0f)
-    val newLightness = (hsl[2] + lightness).coerceIn(0.0f, 1.0f)
-
-    return Color.hsl(newHue,newSaturation, newLightness)
-}
-
-class SegmentDefinitions (val colour: Color, val height: Dp, val text: (Segment) -> String, val editable: Boolean = true, val segment: Boolean = true)
-
-val standardSegmentText: (Segment) -> String = { segment ->
-    "${segment.type}\n" +
-            (if (segment.time >= 60) "${segment.time/60}m " else "") +
-            "${segment.time%60}s @ ${segment.start}" +
-            (if (segment.ramp) "-${segment.end}%" else "%")
-}
-
-const val nestSizeReduction: Int = 20
-
-val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
-    "Warm Up" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
-    "Interval" to SegmentDefinitions(ColourPlus10, 50.dp, standardSegmentText),
-    "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
-    "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
-    "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.repeat}" }, segment = false),
-    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
-)
+import com.example.controller.ui.Segment
+import com.example.controller.ui.SegmentDefinitions
+import com.example.controller.ui.Workout
+import com.example.controller.ui.WorkoutList
+import com.example.controller.ui.theme.ColourMiddle
+import com.example.controller.ui.theme.ColourMinus10
+import com.example.controller.ui.theme.ColourPlus10
+import com.example.controller.ui.theme.adjustColour
+import com.example.controller.ui.segmentTypes
+import com.example.controller.ui.nestSizeReduction
 
 
 
-@Serializable
-@Suppress("PropertyName")
-class Segment(var type: String, var ID: Int, var time: Int, var ramp: Boolean, var start: Int, var end: Int = start, var repeat: Int = 0, var nest: Int = 0)
-
-
-
-@Serializable
-class Workout (var name: String, val segments: MutableList<Segment>, var maxID: Int = 0, var edited: Boolean = false)
-{
-
-    fun saveWorkout(context: android.content.Context)
-    {
-        val json = Json { prettyPrint = true }
-        val file = File(context.filesDir, "all_workouts.json")
-        
-        // 1. Load existing workouts list
-        val workouts = if (file.exists()) {
-            try {
-                json.decodeFromString<MutableList<Workout>>(file.readText())
-            } catch (_: Exception) {
-                mutableListOf()
-            }
-        } else {
-            mutableListOf()
-        }
-
-        // 2. Update existing workout or add as new
-        // Note: Using 'name' as the unique identifier for now
-        val index = workouts.indexOfFirst { it.name == this.name }
-        if (index != -1) {
-            workouts[index] = this
-        } else {
-            workouts.add(this)
-        }
-
-        // 3. Save the entire list back to the single file
-        file.writeText(json.encodeToString(workouts))
-        
-        edited = false
-    }
-    fun addSegment(type: String, time: Int, ramp: Boolean, start: Int, end: Int = start, position: Int = -1)
-    {
-        if (position == -1)
-            segments.add(Segment(type, maxID, time, ramp, start, end))
-        else {
-            segments.add(position+1, Segment(type, maxID, time, ramp, start, end,nest=segments[position].nest))
-        }
-        maxID++
-        edited = true
-    }
-
-    fun addRepeat(repeats: Int, position: Int = segments.size) {
-
-        var added = false
-
-        var repeatStartIndex = segments.size + 1
-        var repeatEndIndex = segments.size + 1
-        var maxNest = 0
-
-        Log.d("REPEATSegment","ADDING REPEAT")
-
-        Log.d("REPEATSegment", "$position")
-        if (position == -1)
-        {
-            repeatStartIndex = segments.size
-            repeatEndIndex = segments.size + 1
-            added = true
-        }
-        else if (segments[position].type.contains("Repeat"))
-            {
-                Log.d("REPEATSegment","JERE")
-
-                for (i in getIndexFromID(segments[position].ID)..getIndexFromID(segments[position].ID,position+1))
-                {
-                    if (segments[i].nest > maxNest) maxNest = segments[i].nest
-                }
-                if (maxNest < 2){
-                    repeatStartIndex =
-                        if (segments[position].type == "RepeatStart") position else
-                            getIndexFromID(segments[position].ID)
-
-                    repeatEndIndex = if (segments[position].type == "RepeatStart")
-                        getIndexFromID(segments[position].ID,position+1) else
-                            position
-
-
-                    for (i in repeatStartIndex .. repeatEndIndex)
-                        segments[i].nest ++
-
-                    repeatEndIndex += 2
-                    added = true
-                }
-                else{
-                    added = true
-                }
-            }
-            else {
-                if (segments[position].nest < 2) {
-                    segments[position].nest++
-                    repeatStartIndex = position
-                    repeatEndIndex = position + 2
-
-                    added = true
-                }
-
-            }
-
-        if (added)
-        {
-            Log.d("REPEATSegment","$repeatStartIndex $repeatEndIndex")
-            segments.add(
-                repeatStartIndex,
-                Segment("RepeatStart", maxID, 0, false, 0, repeat = repeats)
-            )
-            Log.d("REPEATSegment", "start added")
-            segments.add(
-                repeatEndIndex,
-                Segment("RepeatEnd", maxID, 0, false, 0, repeat = repeats)
-            )
-            Log.d("REPEATSegment", "finish added")
-            maxID++
-        }
-        Log.d("REPEATSegment","LEAVING")
-        edited = true
-    }
-    fun removeSegmentWithIndex(index: Int)
-    {
-        if (segmentTypes[segments[index].type]?.segment == true) {
-            segments.removeAt(index)
-            edited = true
-        }
-        else {
-            val repeatEndIndex = getIndexFromID(segments[index].ID, index + 1)
-
-            for (i in index..repeatEndIndex)
-            {
-                segments[i].nest--
-            }
-            segments.removeAt(index)
-            segments.removeAt(repeatEndIndex - 1)
-            edited = true
-        }
-
-
-    }
-    fun move(id: Int = 0, direction: String, index: Int = getIndexFromID(id)): Int
-    {
-        if (index != -1) {
-            val increments: Map<String, Int> = mapOf("up" to -1, "down" to 1).withDefault { 0 }
-            val increment =
-                if ((index + increments.getValue(direction)) in segments.indices)
-                    increments.getValue(direction) else 0
-            val movement =
-                if (segments[index].type.contains("Repeat"))
-                    moveRepeatbyIndex(increment, index) else moveSegmentByIndex(increment, index)
-            edited = true
-            return movement
-        }
-        else {
-            return 0
-        }
-
-    }
-    fun moveSegmentByIndex(increment: Int = 0, index: Int): Int
-    {
-        val nextElement = segments[index + increment]
-
-        if (nextElement.type == "RepeatEnd") {
-
-            segments[index].nest -= increment
-        }
-        else if (nextElement.type == "RepeatStart"){
-            segments[index].nest += increment
-        }
-
-        val temp = segments[index]
-        segments[index] = segments[index + increment]
-        segments[index + increment] = temp
-        edited = true
-
-        return increment
-    }
-
-    fun moveRepeatbyIndex (increment: Int = 0, index: Int): Int
-
-    {
-        var movement = increment
-        var allowMovement = true
-        val currentElement = segments[index]
-        val nextElement = segments[index + increment]
-        var addIndex = index + increment
-        var removeIndex = index
-
-        if ((currentElement.type == "RepeatEnd" && nextElement.type == "RepeatStart" && currentElement.ID == nextElement.ID && movement == -1) ||
-            (currentElement.type == "RepeatStart" && nextElement.type == "RepeatEnd" && currentElement.ID == nextElement.ID && movement == 1) ||
-            (currentElement.type == "RepeatStart" && nextElement.type == "RepeatStart" && movement == -1) ||
-            (currentElement.type == "RepeatEnd" && nextElement.type == "RepeatStart" && movement == -1) ||
-            (currentElement.type == "RepeatEnd" && nextElement.type == "RepeatEnd")){
-            // A RepeatStart can't go past its own RepeatEnd
-            // A RepeatEnd can't got past its own RepeatStart
-            // A RepeatStart can't go up past another RepeatStart - swapping of repeats like this seems like it could get messy, just edit them
-            // A RepeatEnd can't go up or down past another RepeatEnd
-            // Do nothing
-            allowMovement = false
-        }
-        else if (currentElement.type == "RepeatStart" && nextElement.type == "RepeatEnd" && currentElement.ID != nextElement.ID){
-            // movement must be up (movement down dealt with above, results in no move)
-            val aboveRepeatEndIndex = index - 1
-            val aboveRepeatStartIndex = getIndexFromID(segments[aboveRepeatEndIndex].ID)
-
-            for (i in aboveRepeatStartIndex..aboveRepeatEndIndex){
-                if (segments[i].nest == 2) allowMovement = false
-            }
-
-            if (allowMovement) {
-                for (i in aboveRepeatStartIndex..aboveRepeatEndIndex) {
-                    segments[i].nest++
-                }
-                addIndex = aboveRepeatStartIndex
-                removeIndex = index + 1
-                movement = -(index - aboveRepeatStartIndex)
-            }
-        }
-        else if (currentElement.type == "RepeatStart" && nextElement.type == "RepeatStart" && currentElement.ID != nextElement.ID){
-            // movement must be down (movement up dealt with above, results in no move)
-            val belowRepeatStartIndex = index + 1
-            val belowRepeatEndIndex = getIndexFromID(segments[belowRepeatStartIndex].ID,index + 2)
-            // don't need to test for nesting, this will be moving items out of nested repeat
-            for (i in belowRepeatStartIndex..belowRepeatEndIndex){
-                segments[i].nest --
-            }
-            addIndex = belowRepeatEndIndex + 1
-            removeIndex = index
-            movement = belowRepeatEndIndex - belowRepeatStartIndex + 1
-        }
-        else {
-            if (currentElement.type == "RepeatStart") {
-                segments[index + increment].nest -= increment
-            } else if (currentElement.type == "RepeatEnd") {
-                segments[index + increment].nest += increment
-            }
-            addIndex = if (movement > 0) index + movement + 1 else index + movement
-            removeIndex = if (movement<0) index  + 1 else index
-        }
-        if (allowMovement) {
-
-            segments.add(addIndex, segments[index])
-            segments.removeAt(removeIndex)
-            edited = true
-            return movement
-
-        }
-        else
-            return 0
-
-    }
-    fun getSegmentFromIndex(index: Int): Segment
-    {
-        return segments.getOrNull(index) ?: Segment("Empty", -1, 0, false, 0)
-    }
-
-    fun getIndexFromID(id: Int, start: Int = 0): Int {
-        if (segments.isEmpty()) return -1
-        for (n in start until segments.size) {
-            if (segments[n].ID == id)
-                return n
-        }
-        return -1
-    }
-}
-class EditWorkout : ComponentActivity() {
+class WorkoutEdit : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             ControllerTheme {
-
                 val context = androidx.compose.ui.platform.LocalContext.current
-                val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: "New Workout"
+                val workoutName = intent.getStringExtra("WORKOUT_NAME") ?: ""
                 var segmentEdit by remember { mutableStateOf(true) }
                 var segmentEditID by remember { mutableIntStateOf(0) }
                 var selectedSegment by remember { mutableIntStateOf(-1) }
@@ -404,27 +102,11 @@ class EditWorkout : ComponentActivity() {
                 var showRepeatDialog by remember { mutableStateOf(false) }
                 var editNameDialog by remember { mutableStateOf(false) }
                 var activeAlert by remember { mutableStateOf<AlertDefinitions?>(null) }
+                val workouts by remember {
+                    mutableStateOf(WorkoutList(mutableStateListOf<Workout>()))
+                }
 
                 activeAlert?.AlertPopup(onClose = { activeAlert = null })
-
-
-
-
-                fun loadWorkout(loadName: String, context: android.content.Context): Workout
-                {
-                    val file = File(context.filesDir, "all_workouts.json")
-                    val workoutList = mutableListOf<Workout>()
-
-
-                    val json = Json { ignoreUnknownKeys = true }
-                    val workouts = json.decodeFromString<List<Workout>>(file.readText())
-                    workoutList.addAll(workouts.map { it })
-                    for (item in workoutList)
-                        if (item.name == loadName)
-                            return item
-
-                    return Workout("loadName",mutableListOf())
-                }
 
                 @Composable
                 fun drawSegmentCard(workout: Workout, segmentIndex: Int)
@@ -496,7 +178,7 @@ class EditWorkout : ComponentActivity() {
                                         ),
                                         contentPadding = PaddingValues(0.dp),
                                         shape = CircleShape,
-                                        onClick = { workout.removeSegmentWithIndex(segmentIndex) })
+                                        onClick = { workout.removeSegmentWithIndex(segmentIndex,segmentTypes[workout.segments[segmentIndex].type]?.segment?: true) })
                                     {
                                         Icon(
                                             modifier = Modifier.size(32.dp),
@@ -510,8 +192,9 @@ class EditWorkout : ComponentActivity() {
                         }
                     }
                 }
-
-                val openWorkout = remember { if(workoutName == "New Workout")
+                val openWorkout = remember {
+                    workouts.loadWorkoutList(context)
+                    if(workoutName == "")
                 {
                     Workout("New Workout", mutableStateListOf()).apply {
                         addSegment("Warm Up", 180, true, 10, 30)
@@ -521,13 +204,13 @@ class EditWorkout : ComponentActivity() {
                 }
                     else
                 {
-                    val loaded = loadWorkout(workoutName, context)
+
+                    val loaded = workouts.workouts[workouts.getIndex(workoutName)]
                     Workout(
                         name = loaded.name,
                         segments = mutableStateListOf<Segment>().apply { addAll(loaded.segments) },
                         maxID = loaded.maxID,
-                        edited = false
-                    )
+                        edited = loaded.edited)
                 }
                 }
 
@@ -564,7 +247,76 @@ class EditWorkout : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = ColourBackground
+                    containerColor = ColourBackground,
+                    bottomBar = {
+                        Row(
+                        modifier = Modifier
+                            .padding(bottom = 32.dp)
+                            .background(color = ColourBackground)
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    )
+                    {
+                        MyButton(
+                            onClick = {
+                                if (openWorkout.edited) {
+                                    activeAlert = AlertDefinitions(
+                                        title = "Save Changes",
+                                        text = "Do you want to save your changes before leaving?",
+                                        confirmText = "Yes",
+                                        dismissText = "No",
+                                        onConfirm = {
+                                            workouts.updateWorkout(openWorkout)
+                                            workouts.saveWorkoutList(context)
+                                            finish()
+                                        },
+                                        onDismiss = {
+                                            finish()
+                                        }
+                                    )
+                                } else {
+                                    finish()
+                                }
+                            },
+
+                            label = "Back",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+                        MyButton(
+                            onClick = {
+
+                                if (openWorkout.name in workouts.getAllNames())
+                                {
+                                    activeAlert = AlertDefinitions(
+                                        title = "Overwrite workout?",
+                                        text = "A workout with that name already exists. Do you want to overwrite?",
+                                        confirmText = "Yes",
+                                        dismissText = "No",
+                                        onConfirm = {
+                                            workouts.updateWorkout(openWorkout)
+                                            workouts.saveWorkoutList(context)
+                                            finish()
+                                        },
+                                        onDismiss = {
+                                        }
+                                    )
+                                }
+                                else{
+                                    workouts.updateWorkout(openWorkout);
+                                    workouts.saveWorkoutList(context);
+                                    finish()}},
+                            label = "Save",
+                            backgroundColor = ColourButtons,
+                            textColor = Color.Black,
+                            width = 120.dp,
+                            roundCorners = 12.dp
+                        )
+                    }
+                    }
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
@@ -583,7 +335,7 @@ class EditWorkout : ComponentActivity() {
 
                             Box(
                                 modifier = Modifier
-                                    .fillMaxHeight(0.9f)
+                                    .fillMaxHeight()
                                     .fillMaxWidth()
                                     .background(color = ColourBackground)
                                     .padding(),
@@ -763,52 +515,7 @@ class EditWorkout : ComponentActivity() {
 
 
                                 }
-                            Row(
-                                modifier = Modifier
-                                    .padding(bottom = 32.dp)
-                                    .background(color = ColourBackground)
-                                    .fillMaxHeight(1f)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            )
-                            {
-                                MyButton(
-                                    onClick = {
-                                        if (openWorkout.edited) {
-                                            activeAlert = AlertDefinitions(
-                                                title = "Save Changes",
-                                                text = "Do you want to save your changes before leaving?",
-                                                confirmText = "Yes",
-                                                dismissText = "No",
-                                                onConfirm = {
-                                                    openWorkout.saveWorkout(context)
-                                                    finish()
-                                                },
-                                                onDismiss = {
-                                                    finish()
-                                                }
-                                            )
-                                        } else {
-                                            finish()
-                                        }
-                                    },
 
-                                    label = "Back",
-                                    backgroundColor = ColourButtons,
-                                    textColor = Color.Black,
-                                    width = 120.dp,
-                                    roundCorners = 12.dp
-                                )
-                                MyButton(
-                                    onClick = { openWorkout.saveWorkout(context); finish()},
-                                    label = "Save",
-                                    backgroundColor = ColourButtons,
-                                    textColor = Color.Black,
-                                    width = 120.dp,
-                                    roundCorners = 12.dp
-                                )
-                            }
                         }
                     }
                 }

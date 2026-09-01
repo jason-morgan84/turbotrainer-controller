@@ -35,11 +35,11 @@
         </activity>
 
         <activity
-            android:name=".EditWorkout"
+            android:name=".WorkoutEdit"
             android:label="Edit Workout"
             android:theme="@style/Theme.Controller" />
         <activity
-            android:name=".WorkoutsList"
+            android:name=".WorkoutListView"
             android:label="Workouts List"
             android:theme="@style/Theme.Controller" />
         <activity
