@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.controller.ui.theme.ColourBackground
 import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourMiddle
 import com.example.controller.ui.theme.ColourMinus10
@@ -37,8 +38,9 @@ val segmentTypes: Map<String, SegmentDefinitions> = mapOf(
     "Cool Down" to SegmentDefinitions(ColourMiddle, 50.dp, standardSegmentText),
     "Rest" to SegmentDefinitions(ColourMinus10, 50.dp, standardSegmentText),
     "RepeatStart" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 50.dp, { segment -> "Repeat x${segment.repeat}" }, segment = false),
-    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false)
-)
+    "RepeatEnd" to SegmentDefinitions(adjustColour(ColourButtons, lightness = -0.1f), 25.dp, { "" }, editable = false, segment = false),
+    "Padding" to SegmentDefinitions(ColourBackground, 25.dp, { "" }, editable = false, segment = false))
+
 
 
 

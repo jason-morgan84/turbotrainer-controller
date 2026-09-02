@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalDensity
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -48,13 +49,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 import com.example.controller.ui.Label
 import com.example.controller.ui.MyButton
+import com.example.controller.ui.Segment
 import com.example.controller.ui.theme.ColourBackground
 import com.example.controller.ui.theme.ColourButtons
 import com.example.controller.ui.theme.ColourPlus10
@@ -72,6 +76,7 @@ import com.example.controller.ui.theme.ColourPlus5
 import com.example.controller.ui.theme.gradientColours
 import com.example.controller.ui.theme.gradientSteps
 import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 class Workouts : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,7 +103,6 @@ fun WorkoutsScreen(workoutName: String,
 
     val context = androidx.compose.ui.platform.LocalContext.current
     val workoutList = remember { WorkoutList(mutableStateListOf()) }
-    // val currentSegment by remember { mutableIntStateOf(0) }
 
     var runningWorkout by remember {mutableStateOf(false)}
     val gradient = remember(gradientColours) {
@@ -107,38 +111,60 @@ fun WorkoutsScreen(workoutName: String,
         workoutList.loadWorkoutList(context)
 
     }
+
+    val flattenedWorkout = remember(workoutName, workoutList.workouts.size) {
+        val workout = workoutList.workouts.find { it.name == workoutName }
+        workout?.flattenWorkout() ?: mutableListOf()
+    }
+    var currentResistance by remember(flattenedWorkout) {
+        mutableIntStateOf(flattenedWorkout.getOrNull(0)?.start ?: 0)
+    }
+    var currentSegment by remember { mutableIntStateOf(0)}
     var elapsedSeconds by remember { mutableLongStateOf(0L) }
+    var startTime by remember {mutableLongStateOf(0)}
+    val lengthofWorkout = remember(flattenedWorkout) {
+        flattenedWorkout.sumOf { it.time }
+    }
     LaunchedEffect(runningWorkout) {
         if (runningWorkout) {
             val start = System.currentTimeMillis()
             while (true) {
                 // Update the state every 10ms for smooth math, or 1000ms for simple counters
                 elapsedSeconds = (System.currentTimeMillis() - start) / 1000
-                delay(500) // Ticks twice a second
+                if (flattenedWorkout[currentSegment].ramp && elapsedSeconds < lengthofWorkout) {
+                    val previousSegmentsTime =
+                        if (currentSegment == 0) 0 else flattenedWorkout.take(currentSegment)
+                            .sumOf { it.time }
+                    val segmentElapsed = (elapsedSeconds - previousSegmentsTime).toFloat()
+                    val fraction = (segmentElapsed / flattenedWorkout[currentSegment].time)
+                    currentResistance = (flattenedWorkout[currentSegment].start +
+                            fraction * (flattenedWorkout[currentSegment].end - flattenedWorkout[currentSegment].start)).toInt()
+                }
+                else{
+                    currentResistance = flattenedWorkout[currentSegment].end
+                }
+                delay(500.milliseconds) // Ticks twice a second
+
+                //TODO update resistance with ramping
             }
         } else {
             elapsedSeconds = 0
         }
     }
 
-    val flattenedWorkout = remember(workoutName, workoutList.workouts.size) {
-        val workout = workoutList.workouts.find { it.name == workoutName }
-        workout?.flattenWorkout() ?: mutableListOf()
-    }
-    var startTime by remember {mutableLongStateOf(0)}
-    val lengthofWorkout = remember(flattenedWorkout) {
-        flattenedWorkout.sumOf { it.time }
-    }
+
+
     var resistanceIncrement by remember{mutableIntStateOf(0)}
-    var currentResistance by remember(flattenedWorkout) {
-        mutableIntStateOf(flattenedWorkout.getOrNull(0)?.start ?: 0)
-    }
+
     //var currentResistance by remember{mutableIntStateOf(0)}
-    var currentSegment by remember { mutableIntStateOf(0)}
+
     if (elapsedSeconds > flattenedWorkout.take(currentSegment + 1).sumOf {it.time})
     {
-        currentSegment =(currentSegment + 1).coerceAtMost(flattenedWorkout.size-1)//TODO code on current segment change
-        currentResistance = flattenedWorkout[currentSegment].start
+        currentSegment =(currentSegment + 1).coerceAtMost(flattenedWorkout.size-1)
+        //TODO code on current segment change
+        if (elapsedSeconds <= lengthofWorkout) currentResistance = flattenedWorkout[currentSegment].start
+        //if (currentResistance + resistanceIncrement > 100) resistanceIncrement = 100 - currentResistance
+        //if (currentResistance+resistanceIncrement<0) resistanceIncrement = currentResistance
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -270,6 +296,23 @@ fun WorkoutsScreen(workoutName: String,
                         val displayEnd = minOf(currentSegment + 3, flattenedWorkout.size)
                         for (i in currentSegment until displayEnd)
                         {
+                            val cardText =
+                                "${flattenedWorkout[i].type}: " +
+                                        if (i == currentSegment) {
+                                            "${(currentResistance + resistanceIncrement).coerceIn(0,100)}"
+                                        }
+                                        else {
+                                            "${flattenedWorkout[i].start}"} +
+
+
+                                        if (flattenedWorkout[i].ramp)
+                                                    {
+                                                        "-${flattenedWorkout[i].end}%"
+                                                    } else {
+                                                        "%" } + " for " +
+                                                    "%d:%02d".format(flattenedWorkout[i].time / 60, flattenedWorkout[i].time % 60)
+
+
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -279,8 +322,6 @@ fun WorkoutsScreen(workoutName: String,
                                 colors = CardDefaults.cardColors(
                                     containerColor = adjustColour( segmentTypes[flattenedWorkout[i].type]!!.colour, lightness = ((i - currentSegment) * 0.1f))),
                                 shape = RoundedCornerShape(8.dp),
-                                //TODO leave final card up on time 0 to show resistance if continuing
-                                //TODO use same amount of space regardless of how many cards
                                 )
                             {
                                 Box(
@@ -289,7 +330,7 @@ fun WorkoutsScreen(workoutName: String,
                                 ) {
                                     Text(
                                         modifier = Modifier.padding(horizontal = 8.dp),
-                                        text = flattenedWorkout[i].type,
+                                        text = cardText,
                                         fontSize = (20 - (i - currentSegment) * 2).sp,
                                         color = adjustColour(
                                             Color.Black,
@@ -298,6 +339,33 @@ fun WorkoutsScreen(workoutName: String,
                                     )
                                 }
                             }
+                        }
+                        if ((displayEnd - currentSegment) == 1) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = (40 + 10).dp)
+                                    .height((70 - 5).dp),//changed from 50
+                                colors = CardDefaults.cardColors(
+                                    containerColor = ColourBackground
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            {}
+                        }
+                        if ((displayEnd - currentSegment) < 3) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = (40 + 20).dp)
+                                    .height((70 - 10).dp),//changed from 50
+                                colors = CardDefaults.cardColors(
+                                    containerColor = ColourBackground
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            {}
+
                         }
                     }
                 }
@@ -360,8 +428,8 @@ fun WorkoutsScreen(workoutName: String,
                             val minRadius = 80.toFloat()
                             val maxRadius = 100.toFloat()
                             val radius =
-                                minRadius + (maxRadius - minRadius) * ((currentResistance+resistanceIncrement) / 100.0).toFloat()
-                            val colour = gradient[currentResistance+resistanceIncrement]// TODO readd .copy(alpha = alpha)
+                                minRadius + (maxRadius - minRadius) * ((currentResistance+resistanceIncrement).coerceIn(0,100) / 100.0).toFloat()
+                            val colour = gradient[(currentResistance+resistanceIncrement).coerceIn(0,100)]// TODO readd .copy(alpha = alpha)
 
                             drawCircle(
 
@@ -372,7 +440,7 @@ fun WorkoutsScreen(workoutName: String,
                     contentAlignment = Alignment.Center)
                 {
                     Label(
-                        value = (currentResistance+resistanceIncrement).toString().plus("%"),
+                        value = (currentResistance+resistanceIncrement).coerceIn(0,100).toString().plus("%"),
                         fontSize = 24.sp
                     )
                 }
@@ -414,24 +482,28 @@ fun WorkoutsScreen(workoutName: String,
 
             }
 
+            var boxHeight by remember { mutableIntStateOf(0) }
             //Segment Graph
             Box(
                 modifier = Modifier
                     //.weight(1f)
                     .fillMaxSize()
                     .padding(horizontal = 20.dp)
-            )
+                    .onSizeChanged { size ->
+                        boxHeight = size.height
+                    })
             {
+                val rowHeightModifier = boxHeight.toFloat()/100
                 Row(modifier = Modifier
                     .fillMaxSize(),
                     verticalAlignment = Alignment.Bottom)
                 {
-                    val rowHeightModifier = 350/100 //TODO make sure the height of the graph below is limited to the available space
+
 
                     for (item in flattenedWorkout)
                     {
-                        val leftSideHeight = item.start.toFloat() * 3
-                        val rightSideHeight = item.end.toFloat() * 3
+                        val leftSideHeight = item.start.toFloat() * rowHeightModifier
+                        val rightSideHeight = item.end.toFloat() * rowHeightModifier
                         val cardMaxHeight = maxOf(leftSideHeight, rightSideHeight)
 
 
@@ -440,8 +512,8 @@ fun WorkoutsScreen(workoutName: String,
                                 .height(cardMaxHeight.dp)
                                 .weight(item.time.toFloat())
                                 .slopedRoundedBackground(
-                                    leftHeight = leftSideHeight.dp,
-                                    rightHeight = rightSideHeight.dp,
+                                    leftHeight = with(LocalDensity.current) { leftSideHeight.toDp() },
+                                    rightHeight = with(LocalDensity.current) { rightSideHeight.toDp() },
                                     cornerRadius = 2.dp,
                                     backgroundColor = adjustColour(segmentTypes[item.type]!!.colour)
                                 )
@@ -449,19 +521,21 @@ fun WorkoutsScreen(workoutName: String,
                     }
                 }
                 Canvas(modifier = Modifier.fillMaxSize()) {
-                    val progress = if (lengthofWorkout > 0) elapsedSeconds.toFloat() / lengthofWorkout else 0f
+                    val progress = if (lengthofWorkout > 0) (elapsedSeconds.toFloat() / lengthofWorkout).coerceIn(0f,1f) else 0f
                     val x = size.width * progress
                     drawLine(
                         color = adjustColour(Color.Red, lightness = -0.1f),
                         start = Offset(x, 0f),
                         end = Offset(x, size.height),
-                        strokeWidth = 4.dp.toPx())
-                    val y = ((currentResistance+resistanceIncrement) * 3).toFloat()
-                    drawLine(
-                        color = adjustColour(Color.Blue, lightness = -0.1f),
-                        start = Offset(0.toFloat(), size.height -y),
-                        end = Offset(100.toFloat(), size.height - y),
-                        strokeWidth = 4.dp.toPx())
+                        strokeWidth = 2.dp.toPx())
+                    val y = ((currentResistance + resistanceIncrement).coerceIn(0,100) * rowHeightModifier)
+                    if (resistanceIncrement!=0)
+                        drawLine(
+                            color = adjustColour(ColourButtons, lightness = -0.4f),
+                            start = Offset(0.toFloat(), size.height - y),
+                            end = Offset(size.width, size.height -  y),
+                            pathEffect = PathEffect.Companion.dashPathEffect(floatArrayOf(20f,10f),0f),
+                            strokeWidth = 2.dp.toPx())
 
                 }
 
