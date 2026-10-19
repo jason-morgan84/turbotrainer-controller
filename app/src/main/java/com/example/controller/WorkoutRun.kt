@@ -145,7 +145,6 @@ fun WorkoutsScreen(workoutName: String,
                 }
                 delay(500.milliseconds) // Ticks twice a second
 
-                //TODO update resistance with ramping
             }
         } else {
             elapsedSeconds = 0
@@ -156,15 +155,12 @@ fun WorkoutsScreen(workoutName: String,
 
     var resistanceIncrement by remember{mutableIntStateOf(0)}
 
-    //var currentResistance by remember{mutableIntStateOf(0)}
 
     if (elapsedSeconds > flattenedWorkout.take(currentSegment + 1).sumOf {it.time})
     {
         currentSegment =(currentSegment + 1).coerceAtMost(flattenedWorkout.size-1)
-        //TODO code on current segment change
         if (elapsedSeconds <= lengthofWorkout) currentResistance = flattenedWorkout[currentSegment].start
-        //if (currentResistance + resistanceIncrement > 100) resistanceIncrement = 100 - currentResistance
-        //if (currentResistance+resistanceIncrement<0) resistanceIncrement = currentResistance
+
     }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -318,8 +314,7 @@ fun WorkoutsScreen(workoutName: String,
                                     .fillMaxWidth()
                                     .padding(horizontal = (40 + (i - currentSegment) * 10).dp)
                                     .height((70 - (i - currentSegment) * 5).dp),//changed from 50
-                                //TODO get proper text
-                                colors = CardDefaults.cardColors(
+                                      colors = CardDefaults.cardColors(
                                     containerColor = adjustColour( segmentTypes[flattenedWorkout[i].type]!!.colour, lightness = ((i - currentSegment) * 0.1f))),
                                 shape = RoundedCornerShape(8.dp),
                                 )

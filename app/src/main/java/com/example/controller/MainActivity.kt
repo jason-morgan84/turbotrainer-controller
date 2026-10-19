@@ -113,6 +113,7 @@ var resistance_step by mutableIntStateOf(1)
 var actualResistance by mutableIntStateOf(50)
 var actualCadence by mutableIntStateOf(0)
 var actualPower by mutableIntStateOf(0)
+var actualPowerMap = mutableMapOf<Long, Int>()
 
 var averagePower by mutableFloatStateOf(0F)
 var actualEnergy by mutableIntStateOf(0)
@@ -381,7 +382,19 @@ class MainActivity : ComponentActivity() {
                                     // Bit 6: Instantaneous Power present
                                     if ((flags and 0x40) != 0 && data.size >= offset + 2) {
                                         val rawPower = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
-                                        actualPower = rawPower
+                                        //actualPower = rawPower
+                                        // Calculates the average power over the last second (1000ms) rather than using
+                                        // instantaneous power
+                                        val averageOverTime = 1 //length of time in seconds to average over
+                                        actualPowerMap[System.currentTimeMillis()] = rawPower
+                                        for (key in actualPowerMap.keys)
+                                        {
+                                            if (key < System.currentTimeMillis() - averageOverTime*1000){
+                                                actualPowerMap.remove(key)
+                                            }
+
+                                        }
+                                        actualPower = actualPowerMap.values.average().toInt()
                                         //offset += 2
                                     }
 
