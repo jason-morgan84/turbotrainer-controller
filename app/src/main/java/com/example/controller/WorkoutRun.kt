@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -184,6 +185,7 @@ fun WorkoutsScreen(workoutName: String,
             Row(
                 modifier = Modifier
                     .padding(bottom = 32.dp)
+                    .navigationBarsPadding()
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
@@ -318,7 +320,12 @@ fun WorkoutsScreen(workoutName: String,
 
                                         if (flattenedWorkout[i].ramp)
                                                     {
-                                                        "-${flattenedWorkout[i].end}%"
+                                                        if (i == currentSegment) {
+                                                            "-${(flattenedWorkout[i].end+ resistanceIncrement).coerceIn(0,100)}%"
+                                                        }
+                                                        else {
+                                                            "-${flattenedWorkout[i].end}%"}
+
                                                     } else {
                                                         "%" } + " for " +
                                                     "%d:%02d".format(flattenedWorkout[i].time / 60, flattenedWorkout[i].time % 60)

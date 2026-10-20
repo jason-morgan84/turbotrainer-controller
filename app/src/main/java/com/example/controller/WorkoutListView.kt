@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -114,6 +115,7 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
         bottomBar ={Row(
             modifier = Modifier
                 .padding(bottom = 32.dp)
+                .navigationBarsPadding()
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
