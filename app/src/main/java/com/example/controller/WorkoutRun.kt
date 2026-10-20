@@ -128,40 +128,55 @@ fun WorkoutsScreen(workoutName: String,
     LaunchedEffect(runningWorkout) {
         if (runningWorkout) {
             val start = System.currentTimeMillis()
+            var lastSentResistance = -1
             while (true) {
-                // Update the state every 10ms for smooth math, or 1000ms for simple counters
                 elapsedSeconds = (System.currentTimeMillis() - start) / 1000
-                if (flattenedWorkout[currentSegment].ramp && elapsedSeconds < lengthofWorkout) {
-                    val previousSegmentsTime =
-                        if (currentSegment == 0) 0 else flattenedWorkout.take(currentSegment)
-                            .sumOf { it.time }
-                    val segmentElapsed = (elapsedSeconds - previousSegmentsTime).toFloat()
-                    val fraction = (segmentElapsed / flattenedWorkout[currentSegment].time)
-                    currentResistance = (flattenedWorkout[currentSegment].start +
-                            fraction * (flattenedWorkout[currentSegment].end - flattenedWorkout[currentSegment].start)).toInt()
-                }
-                else{
-                    currentResistance = flattenedWorkout[currentSegment].end
-                }
-                delay(500.milliseconds) // Ticks twice a second
 
+                // Determine current segment based on elapsedSeconds
+                var accumulatedTime = 0L
+                var segIndex = 0
+                for (i in flattenedWorkout.indices) {
+                    accumulatedTime += flattenedWorkout[i].time
+                    if (elapsedSeconds < accumulatedTime) {
+                        segIndex = i
+                        break
+                    }
+                    segIndex = flattenedWorkout.size - 1
+                }
+                currentSegment = segIndex
+
+                val segment = flattenedWorkout.getOrNull(currentSegment)
+                if (segment != null) {
+                    if (elapsedSeconds >= lengthofWorkout) {
+                        // Once workout finishes, stay at final segment's end value indefinitely
+                        currentResistance = segment.end
+                    } else {
+                        val previousSegmentsTime = if (currentSegment == 0) 0L else flattenedWorkout.take(currentSegment).sumOf { it.time }
+                        if (segment.ramp) {
+                            val segmentElapsed = (elapsedSeconds - previousSegmentsTime.toLong()).toFloat()
+                            val fraction = if (segment.time > 0) segmentElapsed / segment.time else 1f
+                            currentResistance = (segment.start + fraction * (segment.end - segment.start)).toInt()
+                        } else {
+                            currentResistance = segment.end
+                        }
+                    }
+                }
+
+                abs_resistance = ((max_resistance - min_resistance) * (currentResistance / 100.0) + min_resistance).toInt()
+                if (abs_resistance != lastSentResistance && bluetoothGatt != null) {
+                    lastSentResistance = abs_resistance
+                    sendResistanceToMachine(bluetoothGatt!!)
+                }
+
+                delay(500.milliseconds) // Ticks twice a second
             }
         } else {
             elapsedSeconds = 0
+            currentSegment = 0
         }
     }
 
-
-
     var resistanceIncrement by remember{mutableIntStateOf(0)}
-
-
-    if (elapsedSeconds > flattenedWorkout.take(currentSegment + 1).sumOf {it.time})
-    {
-        currentSegment =(currentSegment + 1).coerceAtMost(flattenedWorkout.size-1)
-        if (elapsedSeconds <= lengthofWorkout) currentResistance = flattenedWorkout[currentSegment].start
-
-    }
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = ColourBackground,

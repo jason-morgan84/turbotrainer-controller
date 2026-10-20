@@ -110,10 +110,12 @@ var max_resistance by mutableIntStateOf(100)
 var min_resistance by mutableIntStateOf(0)
 var resistance_step by mutableIntStateOf(1)
 
+var bluetoothGatt by mutableStateOf<BluetoothGatt?>(null)
+var isConnected by mutableStateOf(false)
 var actualResistance by mutableIntStateOf(50)
 var actualCadence by mutableIntStateOf(0)
 var actualPower by mutableIntStateOf(0)
-var actualPowerMap = mutableMapOf<Long, Int>()
+var actualPowerMap = java.util.concurrent.ConcurrentHashMap<Long, Int>()
 
 var averagePower by mutableFloatStateOf(0F)
 var actualEnergy by mutableIntStateOf(0)
@@ -158,8 +160,6 @@ class MainActivity : ComponentActivity() {
 
                 val bluetoothManager = remember { context.getSystemService(BLUETOOTH_SERVICE) as BluetoothManager }
                 val bluetoothAdapter = remember { bluetoothManager.adapter }
-                var bluetoothGatt by remember { mutableStateOf<BluetoothGatt?>(null) }
-                var isConnected by remember { mutableStateOf(false) }
                 var isPaused by remember { mutableStateOf(false) }
 
                 val gradient = remember(gradientColours) {
@@ -382,19 +382,20 @@ class MainActivity : ComponentActivity() {
                                     // Bit 6: Instantaneous Power present
                                     if ((flags and 0x40) != 0 && data.size >= offset + 2) {
                                         val rawPower = ((data[offset+1].toInt() and 0xFF) shl 8) or (data[offset].toInt() and 0xFF)
-                                        //actualPower = rawPower
                                         // Calculates the average power over the last second (1000ms) rather than using
                                         // instantaneous power
-                                        val averageOverTime = 1 //length of time in seconds to average over
-                                        actualPowerMap[System.currentTimeMillis()] = rawPower
-                                        for (key in actualPowerMap.keys)
-                                        {
-                                            if (key < System.currentTimeMillis() - averageOverTime*1000){
-                                                actualPowerMap.remove(key)
-                                            }
+                                        val averageOverTime = 1 // length of time in seconds to average over
+                                        val now = System.currentTimeMillis()
+                                        actualPowerMap[now] = rawPower
 
+                                        val threshold = now - (averageOverTime * 1000L)
+                                        actualPowerMap.keys.removeIf { it < threshold }
+
+                                        actualPower = if (actualPowerMap.isNotEmpty()) {
+                                            actualPowerMap.values.average().toInt()
+                                        } else {
+                                            0
                                         }
-                                        actualPower = actualPowerMap.values.average().toInt()
                                         //offset += 2
                                     }
 
@@ -412,8 +413,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (abs_resistance != actualResistance){updateResistance(0,bluetoothGatt)}
-
                             if (actualPower > 0)
                             {
                                 totalPower += actualPower
@@ -421,13 +420,19 @@ class MainActivity : ComponentActivity() {
                                 {
                                     currentTime = System.currentTimeMillis()
                                     lastTime = currentTime
+                                    totalTime = 1L
+                                    averagePower = actualPower.toFloat()
                                 }
-                                lastTime = currentTime
-                                currentTime = System.currentTimeMillis()
-                                val difference = currentTime - lastTime
-                                averagePower = (averagePower * totalTime + (actualPower * (difference)))/(totalTime + difference)
-                                totalTime += difference
-                                //averagePower = totalPower / count
+                                else
+                                {
+                                    lastTime = currentTime
+                                    currentTime = System.currentTimeMillis()
+                                    val difference = maxOf(1L, currentTime - lastTime)
+                                    val totalDuration = totalTime + difference
+                                    averagePower = ((averagePower * totalTime) + (actualPower * difference)) / totalDuration
+                                    averagePower = round(averagePower * 10) / 10
+                                    totalTime = totalDuration
+                                }
 
                                 actualEnergy = ((totalPower*(totalTime/1000))/4184).toInt()
 
@@ -458,11 +463,13 @@ class MainActivity : ComponentActivity() {
                                 var d2fdv2 = 0.6 * x0 * x0 + 4.8 * x0
                                 var x1 = x0 - (dfdv/d2fdv2)
 
-                                while (round(x0*10)/10!= round(x1*10)/10) {
+                                var iterations = 0
+                                while (round(x0*10)/10 != round(x1*10)/10 && iterations < 100) {
                                     x0 = x1
                                     dfdv = 0.2 * x0 * x0 * x0 + 2.4 *x0 *x0 - averagePower
                                     d2fdv2 = 0.6 * x0 * x0 + 4.8 * x0
                                     x1 = x0 - (dfdv/d2fdv2)
+                                    iterations++
                                 }
                                 averageSpeed = x1
                                 Log.d("Stats","Average Speed: $x1")
@@ -992,6 +999,7 @@ fun sendResistanceToMachine(gatt: BluetoothGatt) {
         data[1] = (abs_resistance and 0xFF).toByte()
         data[2] = (abs_resistance shr 8 and 0xFF).toByte()
         
+        controlPoint.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
         @Suppress("DEPRECATION")
         controlPoint.value = data
         @Suppress("DEPRECATION")
