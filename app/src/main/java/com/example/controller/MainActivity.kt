@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.controller.ui.KeepScreenOn
 import com.example.controller.ui.Label
 import com.example.controller.ui.MyButton
 import com.example.controller.ui.theme.ControllerTheme
@@ -162,6 +163,8 @@ class MainActivity : ComponentActivity() {
                 val bluetoothManager = remember { context.getSystemService(BLUETOOTH_SERVICE) as BluetoothManager }
                 val bluetoothAdapter = remember { bluetoothManager.adapter }
                 var isPaused by remember { mutableStateOf(false) }
+
+                KeepScreenOn(enabled = isConnected && !isPaused)
 
                 val gradient = remember(gradientColours) {
                     createGradient(gradientSteps, gradientColours)
@@ -435,7 +438,7 @@ class MainActivity : ComponentActivity() {
                                     totalTime = totalDuration
                                 }
 
-                                actualEnergy = ((totalPower*(totalTime/1000))/4184).toInt()
+                                actualEnergy = ((averagePower*(totalTime/1000))).toInt()
 
 
 
