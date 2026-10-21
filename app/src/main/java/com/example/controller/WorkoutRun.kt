@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.example.controller.ui.KeepScreenOn
 import com.example.controller.ui.Label
 import com.example.controller.ui.MyButton
 import com.example.controller.ui.Segment
@@ -105,7 +106,11 @@ fun WorkoutsScreen(workoutName: String,
     val context = androidx.compose.ui.platform.LocalContext.current
     val workoutList = remember { WorkoutList(mutableStateListOf()) }
 
-    var runningWorkout by remember {mutableStateOf(false)}
+    var runningWorkout by remember { mutableStateOf(false) }
+    var isPaused by remember { mutableStateOf(false) }
+
+    KeepScreenOn(enabled = runningWorkout && !isPaused)
+
     val gradient = remember(gradientColours) {
         createGradient(gradientSteps, gradientColours)}
     LaunchedEffect(workoutName) {
@@ -126,48 +131,56 @@ fun WorkoutsScreen(workoutName: String,
     val lengthofWorkout = remember(flattenedWorkout) {
         flattenedWorkout.sumOf { it.time }
     }
+    var resistanceIncrement by remember{mutableIntStateOf(0)}
     LaunchedEffect(runningWorkout) {
         if (runningWorkout) {
-            val start = System.currentTimeMillis()
+            var lastTime = System.currentTimeMillis()
+            var accumulatedTimeMs = 0L
             var lastSentResistance = -1
             while (true) {
-                elapsedSeconds = (System.currentTimeMillis() - start) / 1000
+                val now = System.currentTimeMillis()
+                if (!isPaused) {
+                    val delta = now - lastTime
+                    accumulatedTimeMs += delta
+                    elapsedSeconds = accumulatedTimeMs / 1000
 
-                // Determine current segment based on elapsedSeconds
-                var accumulatedTime = 0L
-                var segIndex = 0
-                for (i in flattenedWorkout.indices) {
-                    accumulatedTime += flattenedWorkout[i].time
-                    if (elapsedSeconds < accumulatedTime) {
-                        segIndex = i
-                        break
+                    // Determine current segment based on elapsedSeconds
+                    var accumulatedTime = 0L
+                    var segIndex = 0
+                    for (i in flattenedWorkout.indices) {
+                        accumulatedTime += flattenedWorkout[i].time
+                        if (elapsedSeconds < accumulatedTime) {
+                            segIndex = i
+                            break
+                        }
+                        segIndex = flattenedWorkout.size - 1
                     }
-                    segIndex = flattenedWorkout.size - 1
-                }
-                currentSegment = segIndex
+                    currentSegment = segIndex
 
-                val segment = flattenedWorkout.getOrNull(currentSegment)
-                if (segment != null) {
-                    if (elapsedSeconds >= lengthofWorkout) {
-                        // Once workout finishes, stay at final segment's end value indefinitely
-                        currentResistance = segment.end
-                    } else {
-                        val previousSegmentsTime = if (currentSegment == 0) 0L else flattenedWorkout.take(currentSegment).sumOf { it.time }
-                        if (segment.ramp) {
-                            val segmentElapsed = (elapsedSeconds - previousSegmentsTime.toLong()).toFloat()
-                            val fraction = if (segment.time > 0) segmentElapsed / segment.time else 1f
-                            currentResistance = (segment.start + fraction * (segment.end - segment.start)).toInt()
-                        } else {
+                    val segment = flattenedWorkout.getOrNull(currentSegment)
+                    if (segment != null) {
+                        if (elapsedSeconds >= lengthofWorkout) {
+                            // Once workout finishes, stay at final segment's end value indefinitely
                             currentResistance = segment.end
+                        } else {
+                            val previousSegmentsTime = if (currentSegment == 0) 0L else flattenedWorkout.take(currentSegment).sumOf { it.time }
+                            if (segment.ramp) {
+                                val segmentElapsed = (elapsedSeconds - previousSegmentsTime.toLong()).toFloat()
+                                val fraction = if (segment.time > 0) segmentElapsed / segment.time else 1f
+                                currentResistance = ((segment.start+resistanceIncrement).coerceIn(0,100) + fraction * ((segment.end+resistanceIncrement).coerceIn(0,100)- (segment.start+resistanceIncrement).coerceIn(0,100))).toInt()
+                            } else {
+                                currentResistance = (segment.end+resistanceIncrement).coerceIn(0,100)
+                            }
                         }
                     }
-                }
 
-                abs_resistance = ((max_resistance - min_resistance) * (currentResistance / 100.0) + min_resistance).toInt()
-                if (abs_resistance != lastSentResistance && bluetoothGatt != null) {
-                    lastSentResistance = abs_resistance
-                    sendResistanceToMachine(bluetoothGatt!!)
+                    abs_resistance = ((max_resistance - min_resistance) * ( (currentResistance+resistanceIncrement).coerceIn(0,100) / 100.0) + min_resistance).toInt()
+                    if (abs_resistance != lastSentResistance && bluetoothGatt != null) {
+                        lastSentResistance = abs_resistance
+                        sendResistanceToMachine(bluetoothGatt!!)
+                    }
                 }
+                lastTime = now
 
                 delay(500.milliseconds) // Ticks twice a second
             }
@@ -177,7 +190,7 @@ fun WorkoutsScreen(workoutName: String,
         }
     }
 
-    var resistanceIncrement by remember{mutableIntStateOf(0)}
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = ColourBackground,
@@ -200,12 +213,16 @@ fun WorkoutsScreen(workoutName: String,
                 )
                 //TODO add are you sure you want to end workout buttons
                 MyButton(
-                    onClick = {if (runningWorkout)
-                    {runningWorkout = false }
-                    else {
-                        runningWorkout = true
-                        startTime = System.currentTimeMillis()
-                    }},
+                    onClick = {
+                        if (runningWorkout) {
+                            runningWorkout = false
+                            isPaused = false
+                        } else {
+                            runningWorkout = true
+                            isPaused = false
+                            startTime = System.currentTimeMillis()
+                        }
+                    },
                     label = if (runningWorkout) "End" else "Start",
                     backgroundColor = ColourButtons,
                     textColor = Color.Black,
@@ -311,24 +328,19 @@ fun WorkoutsScreen(workoutName: String,
                         {
                             val cardText =
                                 "${flattenedWorkout[i].type}: " +
-                                        if (i == currentSegment) {
-                                            "${(currentResistance + resistanceIncrement).coerceIn(0,100)}"
-                                        }
-                                        else {
-                                            "${flattenedWorkout[i].start}"} +
+
+                                        "${(flattenedWorkout[i].start + resistanceIncrement).coerceIn(0,100)}" +
+
 
 
                                         if (flattenedWorkout[i].ramp)
                                                     {
-                                                        if (i == currentSegment) {
                                                             "-${(flattenedWorkout[i].end+ resistanceIncrement).coerceIn(0,100)}%"
-                                                        }
-                                                        else {
-                                                            "-${flattenedWorkout[i].end}%"}
-
                                                     } else {
                                                         "%" } + " for " +
-                                                    "%d:%02d".format(flattenedWorkout[i].time / 60, flattenedWorkout[i].time % 60)
+                                                    if (i == currentSegment) {"%d:%02d".format((flattenedWorkout[i].time - elapsedSeconds) / 60, (flattenedWorkout[i].time-elapsedSeconds) % 60)}
+                                                    else
+                                                    {"%d:%02d".format(flattenedWorkout[i].time / 60, flattenedWorkout[i].time % 60)}
 
 
                             Card(
@@ -348,7 +360,7 @@ fun WorkoutsScreen(workoutName: String,
                                     Text(
                                         modifier = Modifier.padding(horizontal = 8.dp),
                                         text = cardText,
-                                        fontSize = (20 - (i - currentSegment) * 2).sp,
+                                        fontSize = (24 - (i - currentSegment) * 2).sp,
                                         color = adjustColour(
                                             Color.Black,
                                             lightness = ((i - currentSegment) * 0.2f)
@@ -404,7 +416,7 @@ fun WorkoutsScreen(workoutName: String,
                 val width = 40.dp
                 val hPadding = 0.dp
                 Button(
-                    onClick = { resistanceIncrement = (resistanceIncrement - 10).coerceAtLeast(0-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement - 10).coerceAtLeast(-100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -415,7 +427,7 @@ fun WorkoutsScreen(workoutName: String,
                 ) {Text(text = "10")}
 
                 Button(
-                    onClick = { resistanceIncrement = (resistanceIncrement - 5).coerceAtLeast(0-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement - 5).coerceAtLeast(-100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -425,7 +437,7 @@ fun WorkoutsScreen(workoutName: String,
                     )
                 ) {Text(text = "5")}
                 Button(
-                    onClick = { resistanceIncrement = (resistanceIncrement - 1).coerceAtLeast(0-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement - 1).coerceAtLeast(-100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -440,13 +452,18 @@ fun WorkoutsScreen(workoutName: String,
                         .padding(vertical = 5.dp)
                         .size(100.dp)
                         .clip(CircleShape)
+                        .clickable {
+                            if (runningWorkout) {
+                                isPaused = !isPaused
+                            }
+                        }
                         .drawBehind {
 
                             val minRadius = 80.toFloat()
                             val maxRadius = 100.toFloat()
                             val radius =
-                                minRadius + (maxRadius - minRadius) * ((currentResistance+resistanceIncrement).coerceIn(0,100) / 100.0).toFloat()
-                            val colour = gradient[(currentResistance+resistanceIncrement).coerceIn(0,100)]// TODO readd .copy(alpha = alpha)
+                                minRadius + (maxRadius - minRadius) * (currentResistance / 100.0).toFloat()
+                            val colour = gradient[currentResistance]// TODO readd .copy(alpha = alpha)
 
                             drawCircle(
 
@@ -454,17 +471,32 @@ fun WorkoutsScreen(workoutName: String,
                                 color = colour,
                                 style = Stroke(width = 5.dp.toPx()))
                         },
-                    contentAlignment = Alignment.Center)
-                {
+                    contentAlignment = Alignment.Center
+                ) {
                     Label(
-                        value = (currentResistance+resistanceIncrement).coerceIn(0,100).toString().plus("%"),
+                        value = currentResistance.toString().plus("%"),
                         fontSize = 24.sp
                     )
+                    if (isPaused) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(ColourBackground.copy(alpha = 0.7f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = "Paused",
+                                modifier = Modifier.size(60.dp),
+                                tint = ColourButtons
+                            )
+                        }
+                    }
                 }
 //todo re-add bluetooth
                 Button(
                     //onClick = { updateResistance(-1, bluetoothGatt)},
-                    onClick = { resistanceIncrement = (resistanceIncrement + 1).coerceAtMost(100-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement + 1).coerceAtMost(100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -475,7 +507,7 @@ fun WorkoutsScreen(workoutName: String,
                 ) {Text(text = "1")}
                 Button(
                     //onClick = { updateResistance(-1, bluetoothGatt)},
-                    onClick = { resistanceIncrement = (resistanceIncrement + 5).coerceAtMost(100-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement + 5).coerceAtMost(100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -486,7 +518,7 @@ fun WorkoutsScreen(workoutName: String,
                 ) {Text(text = "5")}
                 Button(
                     //onClick = { updateResistance(-1, bluetoothGatt)},
-                    onClick = { resistanceIncrement = (resistanceIncrement + 10).coerceAtMost(100-currentResistance)},
+                    onClick = { resistanceIncrement = (resistanceIncrement + 10).coerceAtMost(100)},
                     modifier = Modifier.width(width).padding(horizontal = hPadding),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(0.dp),
@@ -545,7 +577,7 @@ fun WorkoutsScreen(workoutName: String,
                         start = Offset(x, 0f),
                         end = Offset(x, size.height),
                         strokeWidth = 2.dp.toPx())
-                    val y = ((currentResistance + resistanceIncrement).coerceIn(0,100) * rowHeightModifier)
+                    val y = (currentResistance * rowHeightModifier)
                     if (resistanceIncrement!=0)
                         drawLine(
                             color = adjustColour(ColourButtons, lightness = -0.4f),
