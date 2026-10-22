@@ -174,21 +174,41 @@ fun WorkoutListScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onStart: (St
                 horizontalAlignment = Alignment.Start)
 
             {
-                for (item in workouts.workouts)
-                {
-                    TextButton(modifier = Modifier
-                        .fillMaxWidth(),
-                        shape = RectangleShape,
-                        onClick = { selectedWorkout = if (selectedWorkout == item.name) "" else item.name })
-                    {
-                        Text(modifier = Modifier
-                            .fillMaxWidth()
-                            .padding (horizontal = 40.dp),
-                            fontSize = 16.sp,
-                            textAlign = TextAlign.Start,
-                            color = if (selectedWorkout == item.name) adjustColour(ColourPlus10,lightness = -0.1f,saturation = -0.2f) else adjustColour(Color.DarkGray, lightness = -0.1f),
-                            text = item.name)
+                for (item in workouts.workouts) {
+                    val isSelected = selectedWorkout == item.name
+                    val textColor = if (isSelected) {
+                        adjustColour(ColourPlus10, lightness = -0.1f, saturation = -0.2f)
+                    } else {
+                        adjustColour(Color.DarkGray, lightness = -0.1f)
+                    }
 
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RectangleShape,
+                        onClick = { selectedWorkout = if (selectedWorkout == item.name) "" else item.name }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 40.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = item.name,
+                                fontSize = 16.sp,
+                                color = textColor
+                            )
+                            Text(
+                                text = if (item.calculateTotalTime() % 60 == 0) {
+                                    "%dm".format(item.calculateTotalTime() / 60)
+                                } else {
+                                    "%dm %02ds".format(item.calculateTotalTime() / 60, item.calculateTotalTime() % 60)
+                                },
+                                fontSize = 16.sp,
+                                color = textColor
+                            )
+                        }
                     }
                 }
                 Box(modifier = Modifier
