@@ -359,16 +359,17 @@ class WorkoutEdit : ComponentActivity() {
                                     )
                                     {
                                         TextButton(
-
-                                            modifier = Modifier.padding(start=16.dp),
-                                            onClick = {editNameDialog = true}
+                                            modifier = Modifier.padding(start = 16.dp),
+                                            contentPadding = PaddingValues(0.dp),
+                                            onClick = { editNameDialog = true }
                                         )
                                         {
                                             Text(
                                                 fontSize = 24.sp,
                                                 color = adjustColour(Color.Gray, lightness = -0.1f),
                                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                                                text = openWorkout.name)
+                                                text = openWorkout.name
+                                            )
                                             Icon(
                                                 modifier = Modifier
                                                     .size(20.dp)
@@ -378,6 +379,21 @@ class WorkoutEdit : ComponentActivity() {
                                                 tint = Color.Gray
                                             )
                                         }
+
+                                    }
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 16.dp),
+                                        verticalAlignment = Alignment.Bottom
+                                    )
+                                    {
+                                        Text(
+                                            fontSize = 18.sp,
+                                            color = adjustColour(Color.Gray, lightness = -0.1f),
+                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                            text = "%dm %02ds".format(openWorkout.calculateTotalTime() / 60, openWorkout.calculateTotalTime() % 60)
+                                        )
 
                                     }
                                     for (item in openWorkout.segments.withIndex())
