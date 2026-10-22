@@ -301,6 +301,15 @@ class Workout (var name: String, val segments: MutableList<Segment>, var maxID: 
 
         return flattenedWorkout
     }
+    fun calculateTotalTime(): Int
+    {
+        var totalTime = 0
+        for (segment in flattenWorkout())
+        {
+            totalTime += segment.time
+        }
+        return totalTime
+    }
 
 }
 
